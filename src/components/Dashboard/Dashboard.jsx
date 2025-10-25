@@ -1,7 +1,6 @@
 import './Dashboard.css';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Menu from '../Menu/Menu';
 import {
   MagnifyingGlass,
   Bell,
@@ -202,276 +201,271 @@ export default function Dashboard() {
 
   return (
     <>
-      <Menu />
-      <div className="main-content">
-        {/* Header */}
-        <header className="dashboard-header">
-          <div className="header-left">
-            <div className="search-box">
-              <MagnifyingGlass size={20} weight="regular" />
-              <input type="text" placeholder="Buscar producto..." />
-              <span className="search-shortcut">⌘F</span>
-            </div>
+      {/* Header */}
+      <header className="dashboard-header">
+        <div className="header-left">
+          <div className="search-box">
+            <MagnifyingGlass size={20} weight="regular" />
+            <input type="text" placeholder="Buscar producto..." />
+            <span className="search-shortcut">⌘F</span>
           </div>
+        </div>
 
-          <div className="header-right">
-            <button className="icon-btn">
-              <Envelope size={20} weight="regular" />
-            </button>
-            <button className="icon-btn notification-btn">
-              <Bell size={20} weight="regular" />
-              <span className="notification-dot"></span>
-            </button>
+        <div className="header-right">
+          <button className="icon-btn">
+            <Envelope size={20} weight="regular" />
+          </button>
+          <button className="icon-btn notification-btn">
+            <Bell size={20} weight="regular" />
+            <span className="notification-dot"></span>
+          </button>
 
-            <div className="user-profile-header">
-              <div className="user-avatar-small">
-                {userData.user_first_name?.charAt(0)?.toUpperCase() || 'U'}
-                {userData.user_last_name?.charAt(0)?.toUpperCase() || ''}
+          <div className="user-profile-header">
+            <div className="user-avatar-small">
+              {userData.user_first_name?.charAt(0)?.toUpperCase() || 'U'}
+              {userData.user_last_name?.charAt(0)?.toUpperCase() || ''}
+            </div>
+            <div className="user-info-small">
+              <div className="user-name-small">
+                {userData.user_first_name || 'Usuario'}{' '}
+                {userData.user_last_name || ''}
               </div>
-              <div className="user-info-small">
-                <div className="user-name-small">
-                  {userData.user_first_name || 'Usuario'}{' '}
-                  {userData.user_last_name || ''}
-                </div>
-                <div className="user-email-small">
-                  {getRoleText(userData.user_role)}
-                </div>
+              <div className="user-email-small">
+                {getRoleText(userData.user_role)}
               </div>
             </div>
           </div>
-        </header>
+        </div>
+      </header>
 
-        {/* Main Content */}
-        <main className="dashboard-content">
-          {/* Metrics Row */}
-          <div className="metrics-grid">
-            {metrics.map((metric, index) => (
-              <div
-                key={index}
-                className={`metric-card ${
-                  metric.color === 'primary' ? 'metric-primary' : ''
-                }`}
-              >
-                <div className="metric-header">
-                  <h3 className="metric-label">{metric.label}</h3>
-                  <div className="metric-icon">
-                    <metric.icon size={20} weight="bold" />
-                  </div>
-                </div>
-                <div className="metric-value">{metric.value}</div>
-                {metric.change && (
-                  <div className="metric-change">
-                    {metric.change} {metric.period}
-                  </div>
-                )}
-                {metric.status && (
-                  <div className="metric-status">{metric.status}</div>
-                )}
-              </div>
-            ))}
-          </div>
-
-          {/* Middle Row */}
-          <div className="middle-grid">
-            {/* Sales Analytics */}
-            <div className="dashboard-card">
-              <div className="card-header">
-                <h2 className="card-title">Ingresos de la Semana</h2>
-              </div>
-              <div className="chart-container">
-                <div className="bar-chart">
-                  {revenueData.map((bar, index) => (
-                    <div key={index} className="chart-item">
-                      <div className="chart-value">${bar.value}</div>
-                      <div
-                        className={`chart-bar ${bar.pattern ? 'pattern' : ''}`}
-                        style={{
-                          height: `${(bar.value / 2400) * 100}%`,
-                          backgroundColor: bar.color,
-                        }}
-                      ></div>
-                      <div className="chart-label">{bar.day}</div>
-                    </div>
-                  ))}
-                </div>
-                <div className="chart-annotation">
-                  <span className="chart-percentage">$2,400</span> Máximo
+      {/* Main Content */}
+      <main className="dashboard-content">
+        {/* Metrics Row */}
+        <div className="metrics-grid">
+          {metrics.map((metric, index) => (
+            <div
+              key={index}
+              className={`metric-card ${
+                metric.color === 'primary' ? 'metric-primary' : ''
+              }`}
+            >
+              <div className="metric-header">
+                <h3 className="metric-label">{metric.label}</h3>
+                <div className="metric-icon">
+                  <metric.icon size={20} weight="bold" />
                 </div>
               </div>
+              <div className="metric-value">{metric.value}</div>
+              {metric.change && (
+                <div className="metric-change">
+                  {metric.change} {metric.period}
+                </div>
+              )}
+              {metric.status && (
+                <div className="metric-status">{metric.status}</div>
+              )}
             </div>
+          ))}
+        </div>
 
-            {/* Recent Sales */}
-            <div className="dashboard-card">
-              <div className="card-header">
-                <h2 className="card-title">Ventas Recientes</h2>
-                <button className="btn-icon-small">
-                  <Plus size={16} weight="bold" />
-                  Nueva
-                </button>
-              </div>
-              <div className="sales-list">
-                {recentSales.map(sale => (
-                  <div key={sale.id} className="sale-item">
-                    <div className="sale-info">
-                      <h4 className="sale-customer">{sale.customer}</h4>
-                      <span className="sale-product">{sale.product}</span>
-                    </div>
-                    <div className="sale-details">
-                      <div className="sale-amount">{sale.amount}</div>
-                      <span
-                        className={`status-badge status-${sale.statusColor}`}
-                      >
-                        {sale.status}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
+        {/* Middle Row */}
+        <div className="middle-grid">
+          {/* Sales Analytics */}
+          <div className="dashboard-card">
+            <div className="card-header">
+              <h2 className="card-title">Ingresos de la Semana</h2>
             </div>
-
-            {/* Top Products */}
-            <div className="dashboard-card">
-              <div className="card-header">
-                <h2 className="card-title">Productos Top</h2>
-                <button className="btn-icon-small">
-                  <Plus size={16} weight="bold" />
-                  Ver Todos
-                </button>
-              </div>
-              <div className="products-list">
-                {topProducts.map(product => (
-                  <div key={product.id} className="product-item">
+            <div className="chart-container">
+              <div className="bar-chart">
+                {revenueData.map((bar, index) => (
+                  <div key={index} className="chart-item">
+                    <div className="chart-value">${bar.value}</div>
                     <div
-                      className="product-color"
-                      style={{ backgroundColor: product.color }}
+                      className={`chart-bar ${bar.pattern ? 'pattern' : ''}`}
+                      style={{
+                        height: `${(bar.value / 2400) * 100}%`,
+                        backgroundColor: bar.color,
+                      }}
                     ></div>
-                    <div className="product-info">
-                      <h4 className="product-name">{product.name}</h4>
-                      <span className="product-details">
-                        {product.sales} ventas · {product.revenue}
-                      </span>
-                    </div>
+                    <div className="chart-label">{bar.day}</div>
                   </div>
                 ))}
+              </div>
+              <div className="chart-annotation">
+                <span className="chart-percentage">$2,400</span> Máximo
               </div>
             </div>
           </div>
 
-          {/* Bottom Row */}
-          <div className="bottom-grid">
-            {/* Categories */}
-            <div className="dashboard-card">
-              <div className="card-header">
-                <h2 className="card-title">Categorías</h2>
-                <button className="btn-icon-small">
-                  <Plus size={16} weight="bold" />
-                  Nueva Categoría
-                </button>
+          {/* Recent Sales */}
+          <div className="dashboard-card">
+            <div className="card-header">
+              <h2 className="card-title">Ventas Recientes</h2>
+              <button className="btn-icon-small">
+                <Plus size={16} weight="bold" />
+                Nueva
+              </button>
+            </div>
+            <div className="sales-list">
+              {recentSales.map(sale => (
+                <div key={sale.id} className="sale-item">
+                  <div className="sale-info">
+                    <h4 className="sale-customer">{sale.customer}</h4>
+                    <span className="sale-product">{sale.product}</span>
+                  </div>
+                  <div className="sale-details">
+                    <div className="sale-amount">{sale.amount}</div>
+                    <span className={`status-badge status-${sale.statusColor}`}>
+                      {sale.status}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Top Products */}
+          <div className="dashboard-card">
+            <div className="card-header">
+              <h2 className="card-title">Productos Top</h2>
+              <button className="btn-icon-small">
+                <Plus size={16} weight="bold" />
+                Ver Todos
+              </button>
+            </div>
+            <div className="products-list">
+              {topProducts.map(product => (
+                <div key={product.id} className="product-item">
+                  <div
+                    className="product-color"
+                    style={{ backgroundColor: product.color }}
+                  ></div>
+                  <div className="product-info">
+                    <h4 className="product-name">{product.name}</h4>
+                    <span className="product-details">
+                      {product.sales} ventas · {product.revenue}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom Row */}
+        <div className="bottom-grid">
+          {/* Categories */}
+          <div className="dashboard-card">
+            <div className="card-header">
+              <h2 className="card-title">Categorías</h2>
+              <button className="btn-icon-small">
+                <Plus size={16} weight="bold" />
+                Nueva Categoría
+              </button>
+            </div>
+            <div className="categories-list">
+              {categories.map(category => (
+                <div key={category.id} className="category-item">
+                  <div
+                    className="category-color"
+                    style={{ backgroundColor: category.color }}
+                  ></div>
+                  <div className="category-info">
+                    <h4 className="category-name">{category.name}</h4>
+                    <span className="category-products">
+                      {category.products} productos
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Sales Progress */}
+          <div className="dashboard-card">
+            <div className="card-header">
+              <h2 className="card-title">Estado de Ventas</h2>
+            </div>
+            <div className="progress-container">
+              <div className="donut-chart">
+                <svg viewBox="0 0 120 120" className="progress-ring">
+                  <circle
+                    cx="60"
+                    cy="60"
+                    r="50"
+                    fill="none"
+                    stroke="#e5e7eb"
+                    strokeWidth="20"
+                  />
+                  <circle
+                    cx="60"
+                    cy="60"
+                    r="50"
+                    fill="none"
+                    stroke="#f472b6"
+                    strokeWidth="20"
+                    strokeDasharray={`${2 * Math.PI * 50 * 0.68} ${
+                      2 * Math.PI * 50
+                    }`}
+                    strokeDashoffset={2 * Math.PI * 50 * 0.25}
+                    className="progress-segment"
+                  />
+                  <circle
+                    cx="60"
+                    cy="60"
+                    r="50"
+                    fill="none"
+                    stroke="#ec4899"
+                    strokeWidth="20"
+                    strokeDasharray={`${2 * Math.PI * 50 * 0.22} ${
+                      2 * Math.PI * 50
+                    }`}
+                    strokeDashoffset={2 * Math.PI * 50 * 0.93}
+                    className="progress-segment"
+                  />
+                </svg>
+                <div className="progress-percentage">
+                  <span className="percentage-value">68%</span>
+                  <span className="percentage-label">Completadas</span>
+                </div>
               </div>
-              <div className="categories-list">
-                {categories.map(category => (
-                  <div key={category.id} className="category-item">
+              <div className="progress-legend">
+                {salesProgressData.map((item, index) => (
+                  <div key={index} className="legend-item">
                     <div
-                      className="category-color"
-                      style={{ backgroundColor: category.color }}
+                      className="legend-color"
+                      style={{ backgroundColor: item.color }}
                     ></div>
-                    <div className="category-info">
-                      <h4 className="category-name">{category.name}</h4>
-                      <span className="category-products">
-                        {category.products} productos
-                      </span>
-                    </div>
+                    <span className="legend-label">{item.label}</span>
+                    <span className="legend-value">{item.value}%</span>
                   </div>
                 ))}
               </div>
             </div>
+          </div>
 
-            {/* Sales Progress */}
-            <div className="dashboard-card">
-              <div className="card-header">
-                <h2 className="card-title">Estado de Ventas</h2>
-              </div>
-              <div className="progress-container">
-                <div className="donut-chart">
-                  <svg viewBox="0 0 120 120" className="progress-ring">
-                    <circle
-                      cx="60"
-                      cy="60"
-                      r="50"
-                      fill="none"
-                      stroke="#e5e7eb"
-                      strokeWidth="20"
-                    />
-                    <circle
-                      cx="60"
-                      cy="60"
-                      r="50"
-                      fill="none"
-                      stroke="#f472b6"
-                      strokeWidth="20"
-                      strokeDasharray={`${2 * Math.PI * 50 * 0.68} ${
-                        2 * Math.PI * 50
-                      }`}
-                      strokeDashoffset={2 * Math.PI * 50 * 0.25}
-                      className="progress-segment"
-                    />
-                    <circle
-                      cx="60"
-                      cy="60"
-                      r="50"
-                      fill="none"
-                      stroke="#ec4899"
-                      strokeWidth="20"
-                      strokeDasharray={`${2 * Math.PI * 50 * 0.22} ${
-                        2 * Math.PI * 50
-                      }`}
-                      strokeDashoffset={2 * Math.PI * 50 * 0.93}
-                      className="progress-segment"
-                    />
-                  </svg>
-                  <div className="progress-percentage">
-                    <span className="percentage-value">68%</span>
-                    <span className="percentage-label">Completadas</span>
-                  </div>
-                </div>
-                <div className="progress-legend">
-                  {salesProgressData.map((item, index) => (
-                    <div key={index} className="legend-item">
-                      <div
-                        className="legend-color"
-                        style={{ backgroundColor: item.color }}
-                      ></div>
-                      <span className="legend-label">{item.label}</span>
-                      <span className="legend-value">{item.value}%</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+          {/* Quick Actions */}
+          <div className="dashboard-card">
+            <div className="card-header">
+              <h2 className="card-title">Acciones Rápidas</h2>
             </div>
-
-            {/* Quick Actions */}
-            <div className="dashboard-card">
-              <div className="card-header">
-                <h2 className="card-title">Acciones Rápidas</h2>
-              </div>
-              <div className="quick-actions">
-                <button className="action-btn">
-                  <ShoppingCart size={24} weight="bold" />
-                  Nueva Venta
-                </button>
-                <button className="action-btn">
-                  <Package size={24} weight="bold" />
-                  Agregar Producto
-                </button>
-                <button className="action-btn">
-                  <Tag size={24} weight="bold" />
-                  Nueva Categoría
-                </button>
-              </div>
+            <div className="quick-actions">
+              <button className="action-btn">
+                <ShoppingCart size={24} weight="bold" />
+                Nueva Venta
+              </button>
+              <button className="action-btn">
+                <Package size={24} weight="bold" />
+                Agregar Producto
+              </button>
+              <button className="action-btn">
+                <Tag size={24} weight="bold" />
+                Nueva Categoría
+              </button>
             </div>
           </div>
-        </main>
-      </div>
+        </div>
+      </main>
     </>
   );
 }

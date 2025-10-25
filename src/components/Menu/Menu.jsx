@@ -113,7 +113,7 @@ export default function Sidebar() {
           id: 'categorias',
           label: 'Categorías',
           icon: FolderOpen,
-          path: '/categorias',
+          path: '/dashboard/categories',
         },
         {
           id: 'ventas',

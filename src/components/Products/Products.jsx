@@ -7,6 +7,7 @@ import {
   MagnifyingGlass,
   X,
 } from 'phosphor-react';
+import Swal from 'sweetalert2';
 import './Products.css';
 import {
   getProducts,
@@ -113,8 +114,22 @@ export default function Products() {
 
       if (editingProduct) {
         await updateProduct(editingProduct.prod_id, productData);
+        Swal.fire({
+          icon: 'success',
+          title: '¡Éxito!',
+          text: 'Producto actualizado correctamente',
+          timer: 2000,
+          showConfirmButton: false,
+        });
       } else {
         await createProduct(productData);
+        Swal.fire({
+          icon: 'success',
+          title: '¡Éxito!',
+          text: 'Producto creado correctamente',
+          timer: 2000,
+          showConfirmButton: false,
+        });
       }
 
       setShowModal(false);
@@ -130,6 +145,11 @@ export default function Products() {
     } catch (error) {
       console.error('Error submitting product:', error);
       setError(error.message || 'Error al procesar el producto');
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: error.message || 'Error al procesar el producto',
+      });
     } finally {
       setSubmitting(false);
     }
@@ -148,14 +168,34 @@ export default function Products() {
   };
 
   const handleDelete = async id => {
-    if (
-      window.confirm('¿Estás seguro de que quieres eliminar este producto?')
-    ) {
+    const result = await Swal.fire({
+      title: '¿Estás seguro?',
+      text: 'No podrás revertir esta acción',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar',
+    });
+
+    if (result.isConfirmed) {
       try {
         await deleteProduct(id);
+        Swal.fire({
+          icon: 'success',
+          title: '¡Eliminado!',
+          text: 'El producto ha sido eliminado correctamente',
+          timer: 2000,
+          showConfirmButton: false,
+        });
         loadProducts();
       } catch (error) {
-        setError(error.message);
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: error.message || 'Error al eliminar el producto',
+        });
       }
     }
   };
@@ -258,14 +298,14 @@ export default function Products() {
                     onClick={() => handleEdit(product)}
                     title="Editar"
                   >
-                    <PencilSimple size={14} weight="bold" />
+                    <PencilSimple size={16} weight="bold" />
                   </button>
                   <button
                     className="action-btn delete-btn"
                     onClick={() => handleDelete(product.prod_id)}
                     title="Eliminar"
                   >
-                    <Trash size={14} weight="bold" />
+                    <Trash size={16} weight="bold" />
                   </button>
                 </td>
               </tr>
