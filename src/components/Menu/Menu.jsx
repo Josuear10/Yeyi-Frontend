@@ -91,6 +91,26 @@ export default function Sidebar() {
   // Initialize user data on component mount
   useEffect(() => {
     fetchUserData();
+
+    // Listen for profile updates
+    const handleProfileUpdate = event => {
+      if (event.detail) {
+        setUserData(prev => ({
+          ...prev,
+          user_first_name: event.detail.user_first_name || prev.user_first_name,
+          user_last_name: event.detail.user_last_name || prev.user_last_name,
+        }));
+      } else {
+        // If no detail, refetch from API
+        fetchUserData();
+      }
+    };
+
+    window.addEventListener('userProfileUpdated', handleProfileUpdate);
+
+    return () => {
+      window.removeEventListener('userProfileUpdated', handleProfileUpdate);
+    };
   }, []);
 
   const menuItems = [
@@ -142,7 +162,7 @@ export default function Sidebar() {
           id: 'metodos-pago',
           label: 'Métodos de Pago',
           icon: CreditCard,
-          path: '/metodos-pago',
+          path: '/dashboard/payment-methods',
         },
       ],
     },
@@ -153,7 +173,7 @@ export default function Sidebar() {
           id: 'configuracion',
           label: 'Configuración',
           icon: Gear,
-          path: '/configuracion',
+          path: '/dashboard/configuration',
         },
       ],
     },

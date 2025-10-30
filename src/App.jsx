@@ -12,6 +12,8 @@ import Categories from './components/Categories/Categories';
 import Sales from './components/Sales/Sales';
 import Details from './components/Details/Details';
 import Employees from './components/Employees/Employees';
+import PaymentMethods from './components/PaymentMethods/PaymentMethods';
+import Configuration from './components/Configuration/Configuration';
 import Menu from './components/Menu/Menu';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
@@ -42,6 +44,8 @@ function App() {
             <Route path="sales" element={<Sales />} />
             <Route path="details" element={<Details />} />
             <Route path="empleados" element={<Employees />} />
+            <Route path="payment-methods" element={<PaymentMethods />} />
+            <Route path="configuration" element={<Configuration />} />
             <Route
               index
               element={<Navigate to="/dashboard/overview" replace />}

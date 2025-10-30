@@ -559,8 +559,27 @@ export default function Sales() {
                           </td>
                           <td className="detail-subtotal">
                             {formatCurrency(
-                              detail.det_subtotal ||
-                                detail.det_quantity * detail.det_unit_price
+                              (() => {
+                                // Intentar usar det_subtotal si existe y es válido
+                                if (
+                                  detail.det_subtotal != null &&
+                                  !isNaN(detail.det_subtotal)
+                                ) {
+                                  return Number(detail.det_subtotal);
+                                }
+                                // Calcular: cantidad * precio unitario
+                                const quantity =
+                                  detail.det_quantity != null &&
+                                  !isNaN(detail.det_quantity)
+                                    ? Number(detail.det_quantity)
+                                    : 0;
+                                const unitPrice =
+                                  detail.det_unit_price != null &&
+                                  !isNaN(detail.det_unit_price)
+                                    ? Number(detail.det_unit_price)
+                                    : 0;
+                                return quantity * unitPrice;
+                              })()
                             )}
                           </td>
                         </tr>
@@ -574,14 +593,44 @@ export default function Sales() {
                         <td className="total-amount">
                           <strong>
                             {formatCurrency(
-                              saleDetails.reduce(
-                                (sum, detail) =>
-                                  sum +
-                                  (detail.det_subtotal ||
-                                    detail.det_quantity *
-                                      detail.det_unit_price),
-                                0
-                              )
+                              (() => {
+                                // Primero intentar usar el sale_total de la venta
+                                const selectedSale = sales.find(
+                                  s => s.sale_id === selectedSaleId
+                                );
+                                if (
+                                  selectedSale &&
+                                  selectedSale.sale_total != null &&
+                                  !isNaN(selectedSale.sale_total)
+                                ) {
+                                  return selectedSale.sale_total;
+                                }
+                                // Si no está disponible, calcular sumando los detalles
+                                return saleDetails.reduce((sum, detail) => {
+                                  let subtotal = 0;
+                                  // Intentar usar det_subtotal si existe y es válido
+                                  if (
+                                    detail.det_subtotal != null &&
+                                    !isNaN(detail.det_subtotal)
+                                  ) {
+                                    subtotal = Number(detail.det_subtotal);
+                                  } else {
+                                    // Calcular: cantidad * precio unitario
+                                    const quantity =
+                                      detail.det_quantity != null &&
+                                      !isNaN(detail.det_quantity)
+                                        ? Number(detail.det_quantity)
+                                        : 0;
+                                    const unitPrice =
+                                      detail.det_unit_price != null &&
+                                      !isNaN(detail.det_unit_price)
+                                        ? Number(detail.det_unit_price)
+                                        : 0;
+                                    subtotal = quantity * unitPrice;
+                                  }
+                                  return sum + subtotal;
+                                }, 0);
+                              })()
                             )}
                           </strong>
                         </td>

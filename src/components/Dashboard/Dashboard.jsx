@@ -13,6 +13,14 @@ import {
   Tag,
 } from 'phosphor-react';
 import { getCurrentUser, decodeToken } from '../../api/userService';
+import {
+  getDashboardStats,
+  getRecentSales,
+  getWeeklyRevenue,
+  getTopProducts,
+  getCategoriesWithProducts,
+  getSalesStatus,
+} from '../../api/dashboardService';
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -21,13 +29,42 @@ export default function Dashboard() {
     user_last_name: '',
     user_role: 0,
   });
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState(null);
+  const [recentSales, setRecentSales] = useState([]);
+  const [weeklyRevenue, setWeeklyRevenue] = useState([]);
+  const [topProducts, setTopProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [salesStatus, setSalesStatus] = useState([]);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) {
       navigate('/');
+      return;
     }
     fetchUserData();
+    fetchDashboardData();
+
+    // Listen for profile updates
+    const handleProfileUpdate = event => {
+      if (event.detail) {
+        setUserData(prev => ({
+          ...prev,
+          user_first_name: event.detail.user_first_name || prev.user_first_name,
+          user_last_name: event.detail.user_last_name || prev.user_last_name,
+        }));
+      } else {
+        // If no detail, refetch from API
+        fetchUserData();
+      }
+    };
+
+    window.addEventListener('userProfileUpdated', handleProfileUpdate);
+
+    return () => {
+      window.removeEventListener('userProfileUpdated', handleProfileUpdate);
+    };
   }, [navigate]);
 
   // Helper function to map role number to Spanish text
@@ -70,134 +107,190 @@ export default function Dashboard() {
     }
   };
 
-  // Datos simulados del negocio
-  const metrics = [
-    {
-      label: 'Total Ventas',
-      value: 124,
-      change: '+12',
-      period: 'este mes',
-      color: 'primary',
-      icon: ShoppingCart,
-    },
-    {
-      label: 'Total Productos',
-      value: 48,
-      change: '+8',
-      period: 'este mes',
-      color: 'white',
-      icon: Package,
-    },
-    {
-      label: 'Ingresos Totales',
-      value: '$8,450',
-      change: '+15%',
-      period: 'este mes',
-      color: 'white',
-      icon: CurrencyDollar,
-    },
-    {
-      label: 'Categorías',
-      value: 12,
-      status: 'Activas',
-      color: 'white',
-      icon: Tag,
-    },
-  ];
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+      const [
+        statsData,
+        recentSalesData,
+        weeklyRevenueData,
+        topProductsData,
+        categoriesData,
+        salesStatusData,
+      ] = await Promise.all([
+        getDashboardStats(),
+        getRecentSales(10),
+        getWeeklyRevenue(),
+        getTopProducts(5),
+        getCategoriesWithProducts(),
+        getSalesStatus(),
+      ]);
 
-  const recentSales = [
-    {
-      id: 1,
-      customer: 'María González',
-      product: 'Producto Premium',
-      amount: '$125.00',
-      date: 'Hoy',
-      status: 'Completada',
-      statusColor: 'success',
-    },
-    {
-      id: 2,
-      customer: 'Juan Pérez',
-      product: 'Producto Estándar',
-      amount: '$89.50',
-      date: 'Ayer',
-      status: 'Completada',
-      statusColor: 'success',
-    },
-    {
-      id: 3,
-      customer: 'Ana Martínez',
-      product: 'Producto Básico',
-      amount: '$45.00',
-      date: '2 días',
-      status: 'Pendiente',
-      statusColor: 'warning',
-    },
-    {
-      id: 4,
-      customer: 'Carlos Rodríguez',
-      product: 'Producto Premium',
-      amount: '$150.00',
-      date: '3 días',
-      status: 'Completada',
-      statusColor: 'success',
-    },
-  ];
+      setStats(statsData);
+      setRecentSales(recentSalesData || []);
+      setWeeklyRevenue(weeklyRevenueData || []);
+      setTopProducts(topProductsData || []);
+      setCategories(categoriesData || []);
+      setSalesStatus(salesStatusData || []);
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const topProducts = [
-    {
-      id: 1,
-      name: 'Producto Premium',
-      sales: 45,
-      revenue: '$5,625',
-      color: '#ec4899',
-    },
-    {
-      id: 2,
-      name: 'Producto Estándar',
-      sales: 32,
-      revenue: '$2,864',
-      color: '#f472b6',
-    },
-    {
-      id: 3,
-      name: 'Producto Básico',
-      sales: 28,
-      revenue: '$1,260',
-      color: '#fbcfe8',
-    },
-    {
-      id: 4,
-      name: 'Producto Especial',
-      sales: 19,
-      revenue: '$1,140',
-      color: '#f9a8d4',
-    },
-  ];
+  // Helper function to format currency
+  const formatCurrency = value => {
+    return new Intl.NumberFormat('es-GT', {
+      style: 'currency',
+      currency: 'GTQ',
+      minimumFractionDigits: 2,
+    }).format(value);
+  };
 
-  const categories = [
-    { id: 1, name: 'Categoría 1', products: 12, color: '#ec4899' },
-    { id: 2, name: 'Categoría 2', products: 8, color: '#f472b6' },
-    { id: 3, name: 'Categoría 3', products: 15, color: '#fbcfe8' },
-    { id: 4, name: 'Categoría 4', products: 10, color: '#f9a8d4' },
-    { id: 5, name: 'Categoría 5', products: 3, color: '#ec4899' },
-  ];
+  // Helper function to format date relative to now
+  const formatRelativeDate = dateString => {
+    if (!dateString) return 'Fecha desconocida';
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffTime = Math.abs(now - date);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-  const revenueData = [
-    { day: 'Lun', value: 1200, color: '#ec4899' },
-    { day: 'Mar', value: 1800, color: '#ec4899' },
-    { day: 'Mié', value: 2400, color: '#ec4899' },
-    { day: 'Jue', value: 1600, color: '#f472b6', pattern: true },
-    { day: 'Vie', value: 2200, color: '#ec4899' },
-    { day: 'Sáb', value: 1400, color: '#f472b6', pattern: true },
-    { day: 'Dom', value: 1900, color: '#ec4899' },
-  ];
+    if (diffDays === 0) return 'Hoy';
+    if (diffDays === 1) return 'Ayer';
+    if (diffDays < 7) return `Hace ${diffDays} días`;
+    return date.toLocaleDateString('es-GT');
+  };
 
-  const salesProgressData = [
-    { label: 'Completadas', value: 68, color: '#ec4899' },
-    { label: 'En Proceso', value: 22, color: '#f472b6' },
-    { label: 'Pendientes', value: 10, color: '#fbcfe8' },
+  // Prepare metrics data
+  const metrics = stats
+    ? [
+        {
+          label: 'Total Ventas',
+          value: stats.totalSales || 0,
+          change: stats.salesChange
+            ? (stats.salesChange >= 0 ? '+' : '') + stats.salesChange
+            : null,
+          period: 'este mes',
+          color: 'primary',
+          icon: ShoppingCart,
+        },
+        {
+          label: 'Total Productos',
+          value: stats.totalProducts || 0,
+          change: null,
+          period: 'este mes',
+          color: 'white',
+          icon: Package,
+        },
+        {
+          label: 'Ingresos Totales',
+          value: formatCurrency(stats.totalRevenue || 0),
+          change: stats.revenueChange
+            ? (stats.revenueChange >= 0 ? '+' : '') +
+              stats.revenueChange.toFixed(1) +
+              '%'
+            : null,
+          period: 'este mes',
+          color: 'white',
+          icon: CurrencyDollar,
+        },
+        {
+          label: 'Categorías',
+          value: stats.activeCategories || 0,
+          status: 'Activas',
+          color: 'white',
+          icon: Tag,
+        },
+      ]
+    : [];
+
+  // Prepare revenue data for chart
+  const revenueData =
+    weeklyRevenue.length > 0
+      ? weeklyRevenue.map((item, index) => ({
+          day: item.day,
+          value: item.value,
+          color: index % 2 === 0 ? '#ec4899' : '#f472b6',
+          pattern: index % 3 === 0,
+        }))
+      : [
+          { day: 'Lun', value: 0, color: '#ec4899' },
+          { day: 'Mar', value: 0, color: '#ec4899' },
+          { day: 'Mié', value: 0, color: '#ec4899' },
+          { day: 'Jue', value: 0, color: '#f472b6', pattern: true },
+          { day: 'Vie', value: 0, color: '#ec4899' },
+          { day: 'Sáb', value: 0, color: '#f472b6', pattern: true },
+          { day: 'Dom', value: 0, color: '#ec4899' },
+        ];
+
+  // Prepare top products with colors
+  const topProductsColors = [
+    '#ec4899',
+    '#f472b6',
+    '#fbcfe8',
+    '#f9a8d4',
+    '#ec4899',
   ];
+  const preparedTopProducts = topProducts.map((product, index) => ({
+    id: product.prod_id,
+    name: product.prod_name,
+    sales: Number(product.total_sold || 0),
+    revenue: formatCurrency(Number(product.total_revenue || 0)),
+    color: topProductsColors[index % topProductsColors.length],
+  }));
+
+  // Prepare categories with colors
+  const categoryColors = [
+    '#ec4899',
+    '#f472b6',
+    '#fbcfe8',
+    '#f9a8d4',
+    '#ec4899',
+  ];
+  const preparedCategories = categories.map((category, index) => ({
+    id: category.cat_id,
+    name: category.cat_name,
+    products: Number(category.product_count || 0),
+    color: categoryColors[index % categoryColors.length],
+  }));
+
+  // Prepare recent sales data
+  const preparedRecentSales = recentSales.map(sale => ({
+    id: sale.sale_id,
+    customer: sale.employee_name || 'Cliente',
+    product: sale.firstProduct?.prod_name || 'Producto',
+    amount: formatCurrency(Number(sale.sale_total || 0)),
+    date: formatRelativeDate(sale.sale_date),
+    status: 'Completada',
+    statusColor: 'success',
+  }));
+
+  // Prepare sales progress data
+  const totalProgress = salesStatus.reduce(
+    (sum, item) => sum + (item.value || 0),
+    0
+  );
+  const preparedSalesProgress =
+    salesStatus.length > 0
+      ? salesStatus.map(item => ({
+          label: item.label,
+          value: item.value || 0,
+          color:
+            item.label === 'Completadas'
+              ? '#ec4899'
+              : item.label === 'En Proceso'
+              ? '#f472b6'
+              : '#fbcfe8',
+        }))
+      : [
+          { label: 'Completadas', value: 0, color: '#ec4899' },
+          { label: 'En Proceso', value: 0, color: '#f472b6' },
+          { label: 'Pendientes', value: 0, color: '#fbcfe8' },
+        ];
+
+  // Calculate max value for chart
+  const maxRevenue = Math.max(...revenueData.map(item => item.value), 1);
 
   return (
     <>
@@ -240,231 +333,307 @@ export default function Dashboard() {
 
       {/* Main Content */}
       <main className="dashboard-content">
-        {/* Metrics Row */}
-        <div className="metrics-grid">
-          {metrics.map((metric, index) => (
-            <div
-              key={index}
-              className={`metric-card ${
-                metric.color === 'primary' ? 'metric-primary' : ''
-              }`}
-            >
-              <div className="metric-header">
-                <h3 className="metric-label">{metric.label}</h3>
-                <div className="metric-icon">
-                  <metric.icon size={20} weight="bold" />
+        {loading ? (
+          <div style={{ padding: '2rem', textAlign: 'center' }}>
+            Cargando datos...
+          </div>
+        ) : (
+          <>
+            {/* Metrics Row */}
+            <div className="metrics-grid">
+              {metrics.map((metric, index) => (
+                <div
+                  key={index}
+                  className={`metric-card ${
+                    metric.color === 'primary' ? 'metric-primary' : ''
+                  }`}
+                >
+                  <div className="metric-header">
+                    <h3 className="metric-label">{metric.label}</h3>
+                    <div className="metric-icon">
+                      <metric.icon size={20} weight="bold" />
+                    </div>
+                  </div>
+                  <div className="metric-value">{metric.value}</div>
+                  {metric.change && (
+                    <div className="metric-change">
+                      {metric.change} {metric.period}
+                    </div>
+                  )}
+                  {metric.status && (
+                    <div className="metric-status">{metric.status}</div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Middle Row */}
+            <div className="middle-grid">
+              {/* Sales Analytics */}
+              <div className="dashboard-card">
+                <div className="card-header">
+                  <h2 className="card-title">Ingresos de la Semana</h2>
+                </div>
+                <div className="chart-container">
+                  <div className="bar-chart">
+                    {revenueData.map((bar, index) => (
+                      <div key={index} className="chart-item">
+                        <div className="chart-value">
+                          {formatCurrency(bar.value)}
+                        </div>
+                        <div
+                          className={`chart-bar ${
+                            bar.pattern ? 'pattern' : ''
+                          }`}
+                          style={{
+                            height: `${(bar.value / maxRevenue) * 100}%`,
+                            backgroundColor: bar.color,
+                          }}
+                        ></div>
+                        <div className="chart-label">{bar.day}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="chart-annotation">
+                    <span className="chart-percentage">
+                      {formatCurrency(maxRevenue)}
+                    </span>{' '}
+                    Máximo
+                  </div>
                 </div>
               </div>
-              <div className="metric-value">{metric.value}</div>
-              {metric.change && (
-                <div className="metric-change">
-                  {metric.change} {metric.period}
-                </div>
-              )}
-              {metric.status && (
-                <div className="metric-status">{metric.status}</div>
-              )}
-            </div>
-          ))}
-        </div>
 
-        {/* Middle Row */}
-        <div className="middle-grid">
-          {/* Sales Analytics */}
-          <div className="dashboard-card">
-            <div className="card-header">
-              <h2 className="card-title">Ingresos de la Semana</h2>
-            </div>
-            <div className="chart-container">
-              <div className="bar-chart">
-                {revenueData.map((bar, index) => (
-                  <div key={index} className="chart-item">
-                    <div className="chart-value">${bar.value}</div>
+              {/* Recent Sales */}
+              <div className="dashboard-card">
+                <div className="card-header">
+                  <h2 className="card-title">Ventas Recientes</h2>
+                  <button className="btn-icon-small">
+                    <Plus size={16} weight="bold" />
+                    Nueva
+                  </button>
+                </div>
+                <div className="sales-list">
+                  {preparedRecentSales.length > 0 ? (
+                    preparedRecentSales.map(sale => (
+                      <div key={sale.id} className="sale-item">
+                        <div className="sale-info">
+                          <h4 className="sale-customer">{sale.customer}</h4>
+                          <span className="sale-product">{sale.product}</span>
+                        </div>
+                        <div className="sale-details">
+                          <div className="sale-amount">{sale.amount}</div>
+                          <span
+                            className={`status-badge status-${sale.statusColor}`}
+                          >
+                            {sale.status}
+                          </span>
+                        </div>
+                        <div
+                          className="sale-date"
+                          style={{
+                            fontSize: '0.75rem',
+                            color: '#6b7280',
+                            marginTop: '0.25rem',
+                          }}
+                        >
+                          {sale.date}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
                     <div
-                      className={`chart-bar ${bar.pattern ? 'pattern' : ''}`}
                       style={{
-                        height: `${(bar.value / 2400) * 100}%`,
-                        backgroundColor: bar.color,
+                        padding: '1rem',
+                        textAlign: 'center',
+                        color: '#6b7280',
                       }}
-                    ></div>
-                    <div className="chart-label">{bar.day}</div>
-                  </div>
-                ))}
-              </div>
-              <div className="chart-annotation">
-                <span className="chart-percentage">$2,400</span> Máximo
-              </div>
-            </div>
-          </div>
-
-          {/* Recent Sales */}
-          <div className="dashboard-card">
-            <div className="card-header">
-              <h2 className="card-title">Ventas Recientes</h2>
-              <button className="btn-icon-small">
-                <Plus size={16} weight="bold" />
-                Nueva
-              </button>
-            </div>
-            <div className="sales-list">
-              {recentSales.map(sale => (
-                <div key={sale.id} className="sale-item">
-                  <div className="sale-info">
-                    <h4 className="sale-customer">{sale.customer}</h4>
-                    <span className="sale-product">{sale.product}</span>
-                  </div>
-                  <div className="sale-details">
-                    <div className="sale-amount">{sale.amount}</div>
-                    <span className={`status-badge status-${sale.statusColor}`}>
-                      {sale.status}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Top Products */}
-          <div className="dashboard-card">
-            <div className="card-header">
-              <h2 className="card-title">Productos Top</h2>
-              <button className="btn-icon-small">
-                <Plus size={16} weight="bold" />
-                Ver Todos
-              </button>
-            </div>
-            <div className="products-list">
-              {topProducts.map(product => (
-                <div key={product.id} className="product-item">
-                  <div
-                    className="product-color"
-                    style={{ backgroundColor: product.color }}
-                  ></div>
-                  <div className="product-info">
-                    <h4 className="product-name">{product.name}</h4>
-                    <span className="product-details">
-                      {product.sales} ventas · {product.revenue}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Bottom Row */}
-        <div className="bottom-grid">
-          {/* Categories */}
-          <div className="dashboard-card">
-            <div className="card-header">
-              <h2 className="card-title">Categorías</h2>
-              <button className="btn-icon-small">
-                <Plus size={16} weight="bold" />
-                Nueva Categoría
-              </button>
-            </div>
-            <div className="categories-list">
-              {categories.map(category => (
-                <div key={category.id} className="category-item">
-                  <div
-                    className="category-color"
-                    style={{ backgroundColor: category.color }}
-                  ></div>
-                  <div className="category-info">
-                    <h4 className="category-name">{category.name}</h4>
-                    <span className="category-products">
-                      {category.products} productos
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Sales Progress */}
-          <div className="dashboard-card">
-            <div className="card-header">
-              <h2 className="card-title">Estado de Ventas</h2>
-            </div>
-            <div className="progress-container">
-              <div className="donut-chart">
-                <svg viewBox="0 0 120 120" className="progress-ring">
-                  <circle
-                    cx="60"
-                    cy="60"
-                    r="50"
-                    fill="none"
-                    stroke="#e5e7eb"
-                    strokeWidth="20"
-                  />
-                  <circle
-                    cx="60"
-                    cy="60"
-                    r="50"
-                    fill="none"
-                    stroke="#f472b6"
-                    strokeWidth="20"
-                    strokeDasharray={`${2 * Math.PI * 50 * 0.68} ${
-                      2 * Math.PI * 50
-                    }`}
-                    strokeDashoffset={2 * Math.PI * 50 * 0.25}
-                    className="progress-segment"
-                  />
-                  <circle
-                    cx="60"
-                    cy="60"
-                    r="50"
-                    fill="none"
-                    stroke="#ec4899"
-                    strokeWidth="20"
-                    strokeDasharray={`${2 * Math.PI * 50 * 0.22} ${
-                      2 * Math.PI * 50
-                    }`}
-                    strokeDashoffset={2 * Math.PI * 50 * 0.93}
-                    className="progress-segment"
-                  />
-                </svg>
-                <div className="progress-percentage">
-                  <span className="percentage-value">68%</span>
-                  <span className="percentage-label">Completadas</span>
+                    >
+                      No hay ventas recientes
+                    </div>
+                  )}
                 </div>
               </div>
-              <div className="progress-legend">
-                {salesProgressData.map((item, index) => (
-                  <div key={index} className="legend-item">
+
+              {/* Top Products */}
+              <div className="dashboard-card">
+                <div className="card-header">
+                  <h2 className="card-title">Productos Top</h2>
+                  <button className="btn-icon-small">
+                    <Plus size={16} weight="bold" />
+                    Ver Todos
+                  </button>
+                </div>
+                <div className="products-list">
+                  {preparedTopProducts.length > 0 ? (
+                    preparedTopProducts.map(product => (
+                      <div key={product.id} className="product-item">
+                        <div
+                          className="product-color"
+                          style={{ backgroundColor: product.color }}
+                        ></div>
+                        <div className="product-info">
+                          <h4 className="product-name">{product.name}</h4>
+                          <span className="product-details">
+                            {product.sales} ventas · {product.revenue}
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
                     <div
-                      className="legend-color"
-                      style={{ backgroundColor: item.color }}
-                    ></div>
-                    <span className="legend-label">{item.label}</span>
-                    <span className="legend-value">{item.value}%</span>
-                  </div>
-                ))}
+                      style={{
+                        padding: '1rem',
+                        textAlign: 'center',
+                        color: '#6b7280',
+                      }}
+                    >
+                      No hay productos vendidos
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Quick Actions */}
-          <div className="dashboard-card">
-            <div className="card-header">
-              <h2 className="card-title">Acciones Rápidas</h2>
+            {/* Bottom Row */}
+            <div className="bottom-grid">
+              {/* Categories */}
+              <div className="dashboard-card">
+                <div className="card-header">
+                  <h2 className="card-title">Categorías</h2>
+                  <button className="btn-icon-small">
+                    <Plus size={16} weight="bold" />
+                    Nueva Categoría
+                  </button>
+                </div>
+                <div className="categories-list">
+                  {preparedCategories.length > 0 ? (
+                    preparedCategories.map(category => (
+                      <div key={category.id} className="category-item">
+                        <div
+                          className="category-color"
+                          style={{ backgroundColor: category.color }}
+                        ></div>
+                        <div className="category-info">
+                          <h4 className="category-name">{category.name}</h4>
+                          <span className="category-products">
+                            {category.products} productos
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div
+                      style={{
+                        padding: '1rem',
+                        textAlign: 'center',
+                        color: '#6b7280',
+                      }}
+                    >
+                      No hay categorías activas
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Sales Progress */}
+              <div className="dashboard-card">
+                <div className="card-header">
+                  <h2 className="card-title">Estado de Ventas</h2>
+                </div>
+                <div className="progress-container">
+                  <div className="donut-chart">
+                    <svg viewBox="0 0 120 120" className="progress-ring">
+                      <circle
+                        cx="60"
+                        cy="60"
+                        r="50"
+                        fill="none"
+                        stroke="#e5e7eb"
+                        strokeWidth="20"
+                      />
+                      {preparedSalesProgress.length > 0 &&
+                        (() => {
+                          const total = preparedSalesProgress.reduce(
+                            (sum, item) => sum + item.value,
+                            0
+                          );
+                          if (total === 0) return null;
+
+                          let currentOffset = 0;
+                          const circumference = 2 * Math.PI * 50;
+
+                          return preparedSalesProgress.map((item, index) => {
+                            const percentage = item.value / total;
+                            const dashLength = circumference * percentage;
+                            const offset = currentOffset;
+                            currentOffset += dashLength;
+
+                            return (
+                              <circle
+                                key={index}
+                                cx="60"
+                                cy="60"
+                                r="50"
+                                fill="none"
+                                stroke={item.color}
+                                strokeWidth="20"
+                                strokeDasharray={`${dashLength} ${circumference}`}
+                                strokeDashoffset={-offset}
+                                className="progress-segment"
+                                transform="rotate(-90 60 60)"
+                              />
+                            );
+                          });
+                        })()}
+                    </svg>
+                    <div className="progress-percentage">
+                      <span className="percentage-value">
+                        {preparedSalesProgress.length > 0 &&
+                        preparedSalesProgress[0]
+                          ? `${preparedSalesProgress[0].value}%`
+                          : '0%'}
+                      </span>
+                      <span className="percentage-label">Completadas</span>
+                    </div>
+                  </div>
+                  <div className="progress-legend">
+                    {preparedSalesProgress.map((item, index) => (
+                      <div key={index} className="legend-item">
+                        <div
+                          className="legend-color"
+                          style={{ backgroundColor: item.color }}
+                        ></div>
+                        <span className="legend-label">{item.label}</span>
+                        <span className="legend-value">{item.value}%</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick Actions */}
+              <div className="dashboard-card">
+                <div className="card-header">
+                  <h2 className="card-title">Acciones Rápidas</h2>
+                </div>
+                <div className="quick-actions">
+                  <button className="action-btn">
+                    <ShoppingCart size={24} weight="bold" />
+                    Nueva Venta
+                  </button>
+                  <button className="action-btn">
+                    <Package size={24} weight="bold" />
+                    Agregar Producto
+                  </button>
+                  <button className="action-btn">
+                    <Tag size={24} weight="bold" />
+                    Nueva Categoría
+                  </button>
+                </div>
+              </div>
             </div>
-            <div className="quick-actions">
-              <button className="action-btn">
-                <ShoppingCart size={24} weight="bold" />
-                Nueva Venta
-              </button>
-              <button className="action-btn">
-                <Package size={24} weight="bold" />
-                Agregar Producto
-              </button>
-              <button className="action-btn">
-                <Tag size={24} weight="bold" />
-                Nueva Categoría
-              </button>
-            </div>
-          </div>
-        </div>
+          </>
+        )}
       </main>
     </>
   );
