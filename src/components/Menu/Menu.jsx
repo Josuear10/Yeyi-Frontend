@@ -23,6 +23,7 @@ import {
   CreditCard,
   Package,
   ChartLine,
+  Money,
 } from 'phosphor-react';
 
 export default function Sidebar() {
@@ -122,6 +123,12 @@ export default function Sidebar() {
           label: 'Dashboard',
           icon: GridFour,
           path: '/dashboard/overview',
+        },
+        {
+          id: 'ingresos',
+          label: 'Ingresos',
+          icon: Money,
+          path: '/dashboard/incomes',
         },
         {
           id: 'productos',

@@ -11,6 +11,13 @@ import {
   Package,
   CurrencyDollar,
   Tag,
+  Clock,
+  X,
+  Trophy,
+  ChartLineUp,
+  ChartBar,
+  Target,
+  TrendUp,
 } from 'phosphor-react';
 import { getCurrentUser, decodeToken } from '../../api/userService';
 import {
@@ -18,8 +25,6 @@ import {
   getRecentSales,
   getWeeklyRevenue,
   getTopProducts,
-  getCategoriesWithProducts,
-  getSalesStatus,
 } from '../../api/dashboardService';
 
 export default function Dashboard() {
@@ -34,8 +39,12 @@ export default function Dashboard() {
   const [recentSales, setRecentSales] = useState([]);
   const [weeklyRevenue, setWeeklyRevenue] = useState([]);
   const [topProducts, setTopProducts] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [salesStatus, setSalesStatus] = useState([]);
+  const [dailyGoal, setDailyGoal] = useState(() => {
+    const saved = localStorage.getItem('dailyGoal');
+    return saved ? parseFloat(saved) : 4000;
+  });
+  const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
+  const [goalInputValue, setGoalInputValue] = useState('');
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -110,28 +119,18 @@ export default function Dashboard() {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      const [
-        statsData,
-        recentSalesData,
-        weeklyRevenueData,
-        topProductsData,
-        categoriesData,
-        salesStatusData,
-      ] = await Promise.all([
-        getDashboardStats(),
-        getRecentSales(10),
-        getWeeklyRevenue(),
-        getTopProducts(5),
-        getCategoriesWithProducts(),
-        getSalesStatus(),
-      ]);
+      const [statsData, recentSalesData, weeklyRevenueData, topProductsData] =
+        await Promise.all([
+          getDashboardStats(),
+          getRecentSales(3),
+          getWeeklyRevenue(),
+          getTopProducts(5),
+        ]);
 
       setStats(statsData);
       setRecentSales(recentSalesData || []);
       setWeeklyRevenue(weeklyRevenueData || []);
       setTopProducts(topProductsData || []);
-      setCategories(categoriesData || []);
-      setSalesStatus(salesStatusData || []);
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
     } finally {
@@ -151,15 +150,69 @@ export default function Dashboard() {
   // Helper function to format date relative to now
   const formatRelativeDate = dateString => {
     if (!dateString) return 'Fecha desconocida';
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffTime = Math.abs(now - date);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-    if (diffDays === 0) return 'Hoy';
-    if (diffDays === 1) return 'Ayer';
-    if (diffDays < 7) return `Hace ${diffDays} días`;
-    return date.toLocaleDateString('es-GT');
+    try {
+      // Extract date part if it's an ISO string
+      let dateOnly = dateString;
+      if (typeof dateString === 'string' && dateString.includes('T')) {
+        dateOnly = dateString.split('T')[0];
+      }
+
+      // Parse the date string (YYYY-MM-DD) directly to avoid timezone issues
+      if (
+        typeof dateOnly === 'string' &&
+        dateOnly.match(/^\d{4}-\d{2}-\d{2}$/)
+      ) {
+        const [year, month, day] = dateOnly.split('-').map(Number);
+
+        // Get today's date in local timezone
+        const now = new Date();
+        const today = new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate()
+        );
+
+        // Create date object for the sale date (in local timezone, not UTC)
+        const saleDate = new Date(year, month - 1, day);
+
+        // Calculate difference in days
+        const diffTime = today - saleDate;
+        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+        if (diffDays === 0) return 'Hoy';
+        if (diffDays === 1) return 'Ayer';
+        if (diffDays < 7) return `Hace ${diffDays} días`;
+
+        // Format as DD/MM/YYYY for older dates
+        return `${day.toString().padStart(2, '0')}/${month
+          .toString()
+          .padStart(2, '0')}/${year}`;
+      }
+
+      // Fallback: parse as Date object
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        return 'Fecha inválida';
+      }
+
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const saleDateLocal = new Date(
+        date.getFullYear(),
+        date.getMonth(),
+        date.getDate()
+      );
+      const diffTime = today - saleDateLocal;
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+      if (diffDays === 0) return 'Hoy';
+      if (diffDays === 1) return 'Ayer';
+      if (diffDays < 7) return `Hace ${diffDays} días`;
+      return date.toLocaleDateString('es-GT');
+    } catch (error) {
+      return 'Fecha desconocida';
+    }
   };
 
   // Prepare metrics data
@@ -205,6 +258,9 @@ export default function Dashboard() {
       ]
     : [];
 
+  // Daily goal threshold (from state) - Define early
+  const DAILY_GOAL = dailyGoal;
+
   // Prepare revenue data for chart
   const revenueData =
     weeklyRevenue.length > 0
@@ -224,13 +280,23 @@ export default function Dashboard() {
           { day: 'Dom', value: 0, color: '#ec4899' },
         ];
 
-  // Prepare top products with colors
+  // Calculate weekly totals
+  const weeklyTotal = revenueData.reduce(
+    (sum, item) => sum + (Number(item.value) || 0),
+    0
+  );
+  const averageDaily = weeklyTotal / 7;
+  const daysExceedingGoal = revenueData.filter(
+    bar => bar.value > DAILY_GOAL
+  ).length;
+
+  // Prepare top products with neutral colors
   const topProductsColors = [
-    '#ec4899',
-    '#f472b6',
-    '#fbcfe8',
-    '#f9a8d4',
-    '#ec4899',
+    '#3b82f6', // Blue
+    '#6366f1', // Indigo
+    '#8b5cf6', // Purple
+    '#06b6d4', // Cyan
+    '#10b981', // Green
   ];
   const preparedTopProducts = topProducts.map((product, index) => ({
     id: product.prod_id,
@@ -238,21 +304,6 @@ export default function Dashboard() {
     sales: Number(product.total_sold || 0),
     revenue: formatCurrency(Number(product.total_revenue || 0)),
     color: topProductsColors[index % topProductsColors.length],
-  }));
-
-  // Prepare categories with colors
-  const categoryColors = [
-    '#ec4899',
-    '#f472b6',
-    '#fbcfe8',
-    '#f9a8d4',
-    '#ec4899',
-  ];
-  const preparedCategories = categories.map((category, index) => ({
-    id: category.cat_id,
-    name: category.cat_name,
-    products: Number(category.product_count || 0),
-    color: categoryColors[index % categoryColors.length],
   }));
 
   // Prepare recent sales data
@@ -266,31 +317,57 @@ export default function Dashboard() {
     statusColor: 'success',
   }));
 
-  // Prepare sales progress data
-  const totalProgress = salesStatus.reduce(
-    (sum, item) => sum + (item.value || 0),
-    0
-  );
-  const preparedSalesProgress =
-    salesStatus.length > 0
-      ? salesStatus.map(item => ({
-          label: item.label,
-          value: item.value || 0,
-          color:
-            item.label === 'Completadas'
-              ? '#ec4899'
-              : item.label === 'En Proceso'
-              ? '#f472b6'
-              : '#fbcfe8',
-        }))
-      : [
-          { label: 'Completadas', value: 0, color: '#ec4899' },
-          { label: 'En Proceso', value: 0, color: '#f472b6' },
-          { label: 'Pendientes', value: 0, color: '#fbcfe8' },
-        ];
+  // Helper function to calculate bar height based on daily goal
+  // Bars grow proportionally from 0% to 100% of goal, and can exceed up to 150%
+  const getBarHeight = value => {
+    if (value === 0) return '4px'; // Minimum visible height for zero values
 
-  // Calculate max value for chart
-  const maxRevenue = Math.max(...revenueData.map(item => item.value), 1);
+    const percentage = (value / DAILY_GOAL) * 100;
+    const baseHeight = 180; // Base height in pixels (100% of goal)
+
+    if (percentage > 100) {
+      // If exceeds goal, allow growth up to 150% of base height
+      const extraPercentage = percentage - 100;
+      const maxExtraHeight = baseHeight * 0.5; // 50% extra = 150% total
+      const extraHeight = (extraPercentage / 100) * maxExtraHeight;
+      return `${baseHeight + extraHeight}px`;
+    }
+
+    // Calculate height proportionally to goal (0% to 100%)
+    const height = (percentage / 100) * baseHeight;
+    return `${Math.max(height, 4)}px`; // Minimum 4px for visibility
+  };
+
+  // Check if value exceeds goal
+  const exceedsGoal = value => value > DAILY_GOAL;
+
+  // Handle goal modal functions
+  const handleOpenGoalModal = () => {
+    setGoalInputValue(dailyGoal.toString());
+    setIsGoalModalOpen(true);
+  };
+
+  const handleCloseGoalModal = () => {
+    setIsGoalModalOpen(false);
+    setGoalInputValue('');
+  };
+
+  const handleSaveGoal = () => {
+    const newGoal = parseFloat(goalInputValue);
+    if (!isNaN(newGoal) && newGoal > 0) {
+      setDailyGoal(newGoal);
+      localStorage.setItem('dailyGoal', newGoal.toString());
+      handleCloseGoalModal();
+    }
+  };
+
+  const handleGoalInputKeyDown = e => {
+    if (e.key === 'Enter') {
+      handleSaveGoal();
+    } else if (e.key === 'Escape') {
+      handleCloseGoalModal();
+    }
+  };
 
   return (
     <>
@@ -370,35 +447,113 @@ export default function Dashboard() {
             {/* Middle Row */}
             <div className="middle-grid">
               {/* Sales Analytics */}
-              <div className="dashboard-card">
-                <div className="card-header">
-                  <h2 className="card-title">Ingresos de la Semana</h2>
+              <div className="dashboard-card weekly-income-card">
+                <div className="card-header weekly-income-header">
+                  <div className="card-title-wrapper">
+                    <div className="card-icon-wrapper">
+                      <ChartBar size={20} weight="bold" />
+                    </div>
+                    <h2 className="card-title">Ingresos de la Semana</h2>
+                  </div>
+                  <button
+                    className="goal-edit-btn"
+                    onClick={handleOpenGoalModal}
+                    title={`Meta diaria: ${formatCurrency(
+                      DAILY_GOAL
+                    )} - Click para editar`}
+                    aria-label="Editar meta diaria"
+                  >
+                    <Target size={14} weight="regular" />
+                  </button>
                 </div>
-                <div className="chart-container">
-                  <div className="bar-chart">
-                    {revenueData.map((bar, index) => (
+
+                {/* Stats Summary */}
+                <div className="weekly-stats-summary">
+                  <div className="stat-summary-item">
+                    <div className="stat-summary-label">Total Semanal</div>
+                    <div className="stat-summary-value">
+                      {formatCurrency(weeklyTotal)}
+                    </div>
+                  </div>
+                  <div className="stat-summary-divider"></div>
+                  <div className="stat-summary-item">
+                    <div className="stat-summary-label">Promedio Diario</div>
+                    <div className="stat-summary-value">
+                      {formatCurrency(averageDaily)}
+                    </div>
+                  </div>
+                  <div className="stat-summary-divider"></div>
+                  <div className="stat-summary-item">
+                    <div className="stat-summary-label">Días con Meta</div>
+                    <div className="stat-summary-value highlight">
+                      {daysExceedingGoal}/7
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bar Chart */}
+                <div className="bar-chart">
+                  {/* Goal line at 100% */}
+                  <div className="goal-line"></div>
+                  {revenueData.map((bar, index) => {
+                    const exceeds = exceedsGoal(bar.value);
+                    const percentage = (bar.value / DAILY_GOAL) * 100;
+                    return (
                       <div key={index} className="chart-item">
-                        <div className="chart-value">
-                          {formatCurrency(bar.value)}
+                        <div className="chart-value-wrapper">
+                          <div
+                            className={`chart-value ${
+                              exceeds ? 'exceeds-goal' : ''
+                            }`}
+                          >
+                            {formatCurrency(bar.value)}
+                            {exceeds && (
+                              <span className="goal-badge">
+                                <TrendUp size={12} weight="bold" />
+                              </span>
+                            )}
+                          </div>
+                          {bar.value > 0 && (
+                            <div className="chart-percentage-indicator">
+                              {percentage.toFixed(0)}%
+                            </div>
+                          )}
                         </div>
                         <div
-                          className={`chart-bar ${
-                            bar.pattern ? 'pattern' : ''
+                          className={`chart-bar-wrapper ${
+                            exceeds ? 'exceeds-goal-wrapper' : ''
                           }`}
-                          style={{
-                            height: `${(bar.value / maxRevenue) * 100}%`,
-                            backgroundColor: bar.color,
-                          }}
-                        ></div>
+                        >
+                          <div
+                            className={`chart-bar ${
+                              bar.pattern ? 'pattern' : ''
+                            } ${exceeds ? 'exceeds-goal-bar' : ''}`}
+                            style={{
+                              height: getBarHeight(bar.value),
+                              background: exceeds
+                                ? `linear-gradient(180deg, ${bar.color} 0%, #db2777 100%)`
+                                : `linear-gradient(180deg, ${bar.color} 0%, #f472b6 100%)`,
+                            }}
+                            title={`${bar.day}: ${formatCurrency(bar.value)} ${
+                              exceeds ? '(Meta superada ✓)' : ''
+                            }`}
+                          ></div>
+                        </div>
                         <div className="chart-label">{bar.day}</div>
                       </div>
-                    ))}
+                    );
+                  })}
+                </div>
+
+                {/* Chart Legend */}
+                <div className="chart-legend">
+                  <div className="legend-item">
+                    <div className="legend-color"></div>
+                    <span>Ingreso del día</span>
                   </div>
-                  <div className="chart-annotation">
-                    <span className="chart-percentage">
-                      {formatCurrency(maxRevenue)}
-                    </span>{' '}
-                    Máximo
+                  <div className="legend-item">
+                    <div className="legend-color goal-color"></div>
+                    <span>Meta alcanzada</span>
                   </div>
                 </div>
               </div>
@@ -407,7 +562,10 @@ export default function Dashboard() {
               <div className="dashboard-card">
                 <div className="card-header">
                   <h2 className="card-title">Ventas Recientes</h2>
-                  <button className="btn-icon-small">
+                  <button
+                    className="btn-icon-small btn-new-sale"
+                    onClick={() => navigate('/dashboard/sales')}
+                  >
                     <Plus size={16} weight="bold" />
                     Nueva
                   </button>
@@ -416,39 +574,41 @@ export default function Dashboard() {
                   {preparedRecentSales.length > 0 ? (
                     preparedRecentSales.map(sale => (
                       <div key={sale.id} className="sale-item">
-                        <div className="sale-info">
-                          <h4 className="sale-customer">{sale.customer}</h4>
-                          <span className="sale-product">{sale.product}</span>
+                        <div className="sale-avatar">
+                          {sale.customer?.charAt(0)?.toUpperCase() || 'C'}
                         </div>
-                        <div className="sale-details">
-                          <div className="sale-amount">{sale.amount}</div>
-                          <span
-                            className={`status-badge status-${sale.statusColor}`}
-                          >
-                            {sale.status}
-                          </span>
-                        </div>
-                        <div
-                          className="sale-date"
-                          style={{
-                            fontSize: '0.75rem',
-                            color: '#6b7280',
-                            marginTop: '0.25rem',
-                          }}
-                        >
-                          {sale.date}
+                        <div className="sale-content">
+                          <div className="sale-info">
+                            <div className="sale-header">
+                              <h4 className="sale-customer">{sale.customer}</h4>
+                              <div className="sale-amount">{sale.amount}</div>
+                            </div>
+                            <div className="sale-meta">
+                              <span className="sale-product">
+                                <Package size={12} weight="regular" />
+                                {sale.product}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="sale-footer">
+                            <span
+                              className={`status-badge status-${sale.statusColor}`}
+                            >
+                              {sale.status}
+                            </span>
+                            <span className="sale-date">
+                              <Clock size={12} weight="regular" />
+                              {sale.date}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     ))
                   ) : (
-                    <div
-                      style={{
-                        padding: '1rem',
-                        textAlign: 'center',
-                        color: '#6b7280',
-                      }}
-                    >
-                      No hay ventas recientes
+                    <div className="sales-empty">
+                      <ShoppingCart size={48} weight="light" />
+                      <p>No hay ventas recientes</p>
+                      <span>Las ventas aparecerán aquí</span>
                     </div>
                   )}
                 </div>
@@ -458,183 +618,120 @@ export default function Dashboard() {
               <div className="dashboard-card">
                 <div className="card-header">
                   <h2 className="card-title">Productos Top</h2>
-                  <button className="btn-icon-small">
-                    <Plus size={16} weight="bold" />
+                  <button
+                    type="button"
+                    className="btn-icon-small btn-view-all"
+                    onClick={() => {
+                      console.log('Navegando a /dashboard/products');
+                      navigate('/dashboard/products');
+                    }}
+                  >
+                    <ChartLineUp size={16} weight="regular" />
                     Ver Todos
                   </button>
                 </div>
                 <div className="products-list">
                   {preparedTopProducts.length > 0 ? (
-                    preparedTopProducts.map(product => (
+                    preparedTopProducts.map((product, index) => (
                       <div key={product.id} className="product-item">
+                        <div className="product-rank">
+                          {index === 0 ? (
+                            <Trophy size={18} weight="fill" />
+                          ) : (
+                            <span className="rank-number">{index + 1}</span>
+                          )}
+                        </div>
                         <div
-                          className="product-color"
+                          className="product-indicator"
                           style={{ backgroundColor: product.color }}
                         ></div>
-                        <div className="product-info">
-                          <h4 className="product-name">{product.name}</h4>
-                          <span className="product-details">
-                            {product.sales} ventas · {product.revenue}
-                          </span>
+                        <div className="product-content">
+                          <div className="product-header">
+                            <h4 className="product-name">{product.name}</h4>
+                            <div className="product-revenue">
+                              {product.revenue}
+                            </div>
+                          </div>
+                          <div className="product-meta">
+                            <span className="product-sales">
+                              <Package size={12} weight="regular" />
+                              {product.sales}{' '}
+                              {product.sales === 1 ? 'venta' : 'ventas'}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     ))
                   ) : (
-                    <div
-                      style={{
-                        padding: '1rem',
-                        textAlign: 'center',
-                        color: '#6b7280',
-                      }}
-                    >
-                      No hay productos vendidos
+                    <div className="products-empty">
+                      <Package size={48} weight="light" />
+                      <p>No hay productos vendidos</p>
+                      <span>Los productos más vendidos aparecerán aquí</span>
                     </div>
                   )}
-                </div>
-              </div>
-            </div>
-
-            {/* Bottom Row */}
-            <div className="bottom-grid">
-              {/* Categories */}
-              <div className="dashboard-card">
-                <div className="card-header">
-                  <h2 className="card-title">Categorías</h2>
-                  <button className="btn-icon-small">
-                    <Plus size={16} weight="bold" />
-                    Nueva Categoría
-                  </button>
-                </div>
-                <div className="categories-list">
-                  {preparedCategories.length > 0 ? (
-                    preparedCategories.map(category => (
-                      <div key={category.id} className="category-item">
-                        <div
-                          className="category-color"
-                          style={{ backgroundColor: category.color }}
-                        ></div>
-                        <div className="category-info">
-                          <h4 className="category-name">{category.name}</h4>
-                          <span className="category-products">
-                            {category.products} productos
-                          </span>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div
-                      style={{
-                        padding: '1rem',
-                        textAlign: 'center',
-                        color: '#6b7280',
-                      }}
-                    >
-                      No hay categorías activas
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Sales Progress */}
-              <div className="dashboard-card">
-                <div className="card-header">
-                  <h2 className="card-title">Estado de Ventas</h2>
-                </div>
-                <div className="progress-container">
-                  <div className="donut-chart">
-                    <svg viewBox="0 0 120 120" className="progress-ring">
-                      <circle
-                        cx="60"
-                        cy="60"
-                        r="50"
-                        fill="none"
-                        stroke="#e5e7eb"
-                        strokeWidth="20"
-                      />
-                      {preparedSalesProgress.length > 0 &&
-                        (() => {
-                          const total = preparedSalesProgress.reduce(
-                            (sum, item) => sum + item.value,
-                            0
-                          );
-                          if (total === 0) return null;
-
-                          let currentOffset = 0;
-                          const circumference = 2 * Math.PI * 50;
-
-                          return preparedSalesProgress.map((item, index) => {
-                            const percentage = item.value / total;
-                            const dashLength = circumference * percentage;
-                            const offset = currentOffset;
-                            currentOffset += dashLength;
-
-                            return (
-                              <circle
-                                key={index}
-                                cx="60"
-                                cy="60"
-                                r="50"
-                                fill="none"
-                                stroke={item.color}
-                                strokeWidth="20"
-                                strokeDasharray={`${dashLength} ${circumference}`}
-                                strokeDashoffset={-offset}
-                                className="progress-segment"
-                                transform="rotate(-90 60 60)"
-                              />
-                            );
-                          });
-                        })()}
-                    </svg>
-                    <div className="progress-percentage">
-                      <span className="percentage-value">
-                        {preparedSalesProgress.length > 0 &&
-                        preparedSalesProgress[0]
-                          ? `${preparedSalesProgress[0].value}%`
-                          : '0%'}
-                      </span>
-                      <span className="percentage-label">Completadas</span>
-                    </div>
-                  </div>
-                  <div className="progress-legend">
-                    {preparedSalesProgress.map((item, index) => (
-                      <div key={index} className="legend-item">
-                        <div
-                          className="legend-color"
-                          style={{ backgroundColor: item.color }}
-                        ></div>
-                        <span className="legend-label">{item.label}</span>
-                        <span className="legend-value">{item.value}%</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Quick Actions */}
-              <div className="dashboard-card">
-                <div className="card-header">
-                  <h2 className="card-title">Acciones Rápidas</h2>
-                </div>
-                <div className="quick-actions">
-                  <button className="action-btn">
-                    <ShoppingCart size={24} weight="bold" />
-                    Nueva Venta
-                  </button>
-                  <button className="action-btn">
-                    <Package size={24} weight="bold" />
-                    Agregar Producto
-                  </button>
-                  <button className="action-btn">
-                    <Tag size={24} weight="bold" />
-                    Nueva Categoría
-                  </button>
                 </div>
               </div>
             </div>
           </>
         )}
       </main>
+
+      {/* Goal Modal */}
+      {isGoalModalOpen && (
+        <div className="goal-modal-overlay" onClick={handleCloseGoalModal}>
+          <div className="goal-modal" onClick={e => e.stopPropagation()}>
+            <div className="goal-modal-header">
+              <h3 className="goal-modal-title">Editar Meta Diaria</h3>
+              <button
+                className="goal-modal-close"
+                onClick={handleCloseGoalModal}
+                aria-label="Cerrar"
+              >
+                <X size={20} weight="bold" />
+              </button>
+            </div>
+            <div className="goal-modal-body">
+              <label htmlFor="goal-input" className="goal-modal-label">
+                Meta diaria (Q)
+              </label>
+              <input
+                id="goal-input"
+                type="number"
+                className="goal-modal-input"
+                value={goalInputValue}
+                onChange={e => setGoalInputValue(e.target.value)}
+                onKeyDown={handleGoalInputKeyDown}
+                placeholder="Ingrese la meta diaria"
+                min="1"
+                step="0.01"
+                autoFocus
+              />
+              <div className="goal-modal-info">
+                <span>La meta actual es: {formatCurrency(dailyGoal)}</span>
+              </div>
+            </div>
+            <div className="goal-modal-footer">
+              <button
+                className="goal-modal-btn goal-modal-btn-cancel"
+                onClick={handleCloseGoalModal}
+              >
+                Cancelar
+              </button>
+              <button
+                className="goal-modal-btn goal-modal-btn-save"
+                onClick={handleSaveGoal}
+                disabled={
+                  !goalInputValue ||
+                  isNaN(parseFloat(goalInputValue)) ||
+                  parseFloat(goalInputValue) <= 0
+                }
+              >
+                Guardar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

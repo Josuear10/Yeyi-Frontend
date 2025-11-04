@@ -6,6 +6,8 @@ import {
   Users,
   MagnifyingGlass,
   X,
+  ArrowLeft,
+  ArrowRight,
 } from 'phosphor-react';
 import Swal from 'sweetalert2';
 import './Employees.css';
@@ -26,6 +28,8 @@ export default function Employees() {
   const [editingEmployee, setEditingEmployee] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [currentUserId, setCurrentUserId] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [formData, setFormData] = useState({
     emp_name: '',
     emp_phone: '',
@@ -33,7 +37,7 @@ export default function Employees() {
     emp_position: '',
     emp_commission: '',
     emp_dpi: '',
-    emp_is_active: 'active',
+    emp_is_active: true,
     user_id: null,
   });
 
@@ -71,28 +75,8 @@ export default function Employees() {
 
   // Helper function para determinar si un empleado está activo
   const isEmployeeActive = status => {
-    // Si es boolean, devolver directamente
-    if (typeof status === 'boolean') {
-      return status;
-    }
-    // Si es string 'active', devolver true
-    if (
-      typeof status === 'string' &&
-      status.toLowerCase().trim() === 'active'
-    ) {
-      return true;
-    }
-    // Si es true (1, true, etc), devolver true
-    if (
-      status === 1 ||
-      status === '1' ||
-      status === true ||
-      status === 'true'
-    ) {
-      return true;
-    }
-    // Por defecto, inactivo
-    return false;
+    // Trabajar directamente con booleanos
+    return status === true || status === 1 || status === 'true';
   };
 
   const loadEmployees = async () => {
@@ -113,9 +97,11 @@ export default function Employees() {
 
   const handleInputChange = e => {
     const { name, value } = e.target;
+    // Convertir el valor del select de estado a booleano
+    const finalValue = name === 'emp_is_active' ? value === 'true' : value;
     setFormData(prev => ({
       ...prev,
-      [name]: value,
+      [name]: finalValue,
     }));
   };
 
@@ -134,7 +120,7 @@ export default function Employees() {
           ? parseFloat(formData.emp_commission)
           : 0,
         emp_dpi: formData.emp_dpi ? parseInt(formData.emp_dpi) : null,
-        emp_is_active: formData.emp_is_active, // Enviar como 'active' o 'inactive' (string)
+        emp_is_active: formData.emp_is_active, // Enviar booleano directamente
         user_id: currentUserId || formData.user_id,
       };
 
@@ -175,7 +161,7 @@ export default function Employees() {
         emp_position: '',
         emp_commission: '',
         emp_dpi: '',
-        emp_is_active: 'active',
+        emp_is_active: true,
         user_id: currentUserId,
       });
       loadEmployees();
@@ -194,10 +180,8 @@ export default function Employees() {
 
   const handleEdit = employee => {
     setEditingEmployee(employee);
-    // Convertir el boolean/number a string para el select
-    const statusString = isEmployeeActive(employee.emp_is_active)
-      ? 'active'
-      : 'inactive';
+    // Convertir el valor a booleano
+    const statusBoolean = isEmployeeActive(employee.emp_is_active);
 
     setFormData({
       emp_name: employee.emp_name || '',
@@ -206,7 +190,7 @@ export default function Employees() {
       emp_position: employee.emp_position || '',
       emp_commission: employee.emp_commission || '',
       emp_dpi: employee.emp_dpi || '',
-      emp_is_active: statusString,
+      emp_is_active: statusBoolean,
       user_id: employee.user_id || currentUserId,
     });
     setShowModal(true);
@@ -255,7 +239,7 @@ export default function Employees() {
       emp_position: '',
       emp_commission: '',
       emp_dpi: '',
-      emp_is_active: 'active',
+      emp_is_active: true,
       user_id: currentUserId,
     });
   };
@@ -267,6 +251,34 @@ export default function Employees() {
       employee.emp_email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       employee.emp_phone?.includes(searchTerm)
   );
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredEmployees.length / pageSize);
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const paginatedEmployees = filteredEmployees.slice(startIndex, endIndex);
+
+  // Reset to page 1 when search term changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, pageSize]);
+
+  const handlePageSizeChange = e => {
+    setPageSize(Number(e.target.value));
+    setCurrentPage(1);
+  };
+
+  const handlePreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
 
   if (loading) {
     return (
@@ -305,6 +317,21 @@ export default function Employees() {
             className="search-input"
           />
         </div>
+        <div className="pagination-controls">
+          <label htmlFor="page-size-select" className="page-size-label">
+            Mostrar:
+          </label>
+          <select
+            id="page-size-select"
+            value={pageSize}
+            onChange={handlePageSizeChange}
+            className="page-size-select"
+          >
+            <option value={5}>5</option>
+            <option value={7}>7</option>
+            <option value={10}>10</option>
+          </select>
+        </div>
       </div>
 
       {error && <div className="error-message">{error}</div>}
@@ -325,7 +352,7 @@ export default function Employees() {
             </tr>
           </thead>
           <tbody>
-            {filteredEmployees.map(employee => (
+            {paginatedEmployees.map(employee => (
               <tr key={employee.emp_id}>
                 <td>{employee.emp_id}</td>
                 <td className="employee-name">{employee.emp_name}</td>
@@ -379,6 +406,38 @@ export default function Employees() {
           </div>
         )}
       </div>
+
+      {/* Pagination */}
+      {filteredEmployees.length > 0 && (
+        <div className="pagination">
+          <div className="pagination-info">
+            Mostrando {startIndex + 1} -{' '}
+            {Math.min(endIndex, filteredEmployees.length)} de{' '}
+            {filteredEmployees.length} empleados
+          </div>
+          <div className="pagination-buttons">
+            <button
+              className="pagination-btn"
+              onClick={handlePreviousPage}
+              disabled={currentPage === 1}
+              title="Página anterior"
+            >
+              <ArrowLeft size={20} weight="bold" />
+            </button>
+            <span className="pagination-page-info">
+              Página {currentPage} de {totalPages}
+            </span>
+            <button
+              className="pagination-btn"
+              onClick={handleNextPage}
+              disabled={currentPage === totalPages}
+              title="Página siguiente"
+            >
+              <ArrowRight size={20} weight="bold" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Modal */}
       {showModal && (
@@ -475,12 +534,12 @@ export default function Employees() {
                 <select
                   id="emp_is_active"
                   name="emp_is_active"
-                  value={formData.emp_is_active}
+                  value={formData.emp_is_active ? 'true' : 'false'}
                   onChange={handleInputChange}
                   required
                 >
-                  <option value="active">Activo</option>
-                  <option value="inactive">Inactivo</option>
+                  <option value="true">Activo</option>
+                  <option value="false">Inactivo</option>
                 </select>
               </div>
 

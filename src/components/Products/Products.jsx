@@ -6,6 +6,8 @@ import {
   Package,
   MagnifyingGlass,
   X,
+  ArrowLeft,
+  ArrowRight,
 } from 'phosphor-react';
 import Swal from 'sweetalert2';
 import './Products.css';
@@ -26,6 +28,8 @@ export default function Products() {
   const [showModal, setShowModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [formData, setFormData] = useState({
     prod_name: '',
     prod_description: '',
@@ -218,6 +222,34 @@ export default function Products() {
       product.prod_description.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Pagination logic
+  const totalPages = Math.ceil(filteredProducts.length / pageSize);
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const paginatedProducts = filteredProducts.slice(startIndex, endIndex);
+
+  // Reset to page 1 when search term changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, pageSize]);
+
+  const handlePageSizeChange = e => {
+    setPageSize(Number(e.target.value));
+    setCurrentPage(1);
+  };
+
+  const handlePreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
   const getCategoryName = catId => {
     const category = categories.find(cat => cat.cat_id === catId);
     return category ? category.cat_name : 'Sin categoría';
@@ -260,6 +292,21 @@ export default function Products() {
             className="search-input"
           />
         </div>
+        <div className="pagination-controls">
+          <label htmlFor="page-size-select" className="page-size-label">
+            Mostrar:
+          </label>
+          <select
+            id="page-size-select"
+            value={pageSize}
+            onChange={handlePageSizeChange}
+            className="page-size-select"
+          >
+            <option value={5}>5</option>
+            <option value={7}>7</option>
+            <option value={10}>10</option>
+          </select>
+        </div>
       </div>
 
       {error && <div className="error-message">{error}</div>}
@@ -269,16 +316,16 @@ export default function Products() {
           <thead>
             <tr>
               <th>ID</th>
-              <th>Nombre</th>
-              <th>Descripción</th>
-              <th>Precio</th>
-              <th>Stock</th>
-              <th>Categoría</th>
-              <th>Acciones</th>
+              <th>NOMBRE</th>
+              <th>DESCRIPCIÓN</th>
+              <th>PRECIO</th>
+              <th>STOCK</th>
+              <th>CATEGORÍA</th>
+              <th>ACCIONES</th>
             </tr>
           </thead>
           <tbody>
-            {filteredProducts.map(product => (
+            {paginatedProducts.map(product => (
               <tr key={product.prod_id}>
                 <td>{product.prod_id}</td>
                 <td className="product-name">{product.prod_name}</td>
@@ -320,6 +367,38 @@ export default function Products() {
           </div>
         )}
       </div>
+
+      {/* Pagination */}
+      {filteredProducts.length > 0 && (
+        <div className="pagination">
+          <div className="pagination-info">
+            Mostrando {startIndex + 1} -{' '}
+            {Math.min(endIndex, filteredProducts.length)} de{' '}
+            {filteredProducts.length} productos
+          </div>
+          <div className="pagination-buttons">
+            <button
+              className="pagination-btn"
+              onClick={handlePreviousPage}
+              disabled={currentPage === 1}
+              title="Página anterior"
+            >
+              <ArrowLeft size={20} weight="bold" />
+            </button>
+            <span className="pagination-page-info">
+              Página {currentPage} de {totalPages}
+            </span>
+            <button
+              className="pagination-btn"
+              onClick={handleNextPage}
+              disabled={currentPage === totalPages}
+              title="Página siguiente"
+            >
+              <ArrowRight size={20} weight="bold" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Modal */}
       {showModal && (

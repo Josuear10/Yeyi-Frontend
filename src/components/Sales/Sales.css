@@ -76,11 +76,120 @@
   padding: 20px;
   border-radius: 16px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.filters-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 16px;
 }
 
 .search-container {
   position: relative;
-  max-width: 400px;
+  max-width: 300px;
+  flex: 1;
+  min-width: 200px;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 150px;
+}
+
+.filter-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.filter-select,
+.filter-date-input {
+  padding: 10px 12px;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #1f2937;
+  background: #ffffff;
+  transition: all 0.2s ease;
+  outline: none;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.filter-date-input {
+  cursor: text;
+}
+
+.filter-select:focus,
+.filter-date-input:focus {
+  border-color: #ec4899;
+  box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.1);
+}
+
+.clear-filters-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  background: white;
+  color: #6b7280;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  height: fit-content;
+}
+
+.clear-filters-btn:hover {
+  border-color: #dc2626;
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 8px;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.page-size-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.page-size-select {
+  padding: 8px 12px;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #1f2937;
+  background: #ffffff;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  outline: none;
+  font-family: inherit;
+}
+
+.page-size-select:focus {
+  border-color: #ec4899;
+  box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.1);
 }
 
 .search-icon {
@@ -250,6 +359,24 @@
   display: block;
   width: 16px;
   height: 16px;
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.edit-btn svg {
+  color: #d97706;
+}
+
+.delete-btn svg {
+  color: #dc2626;
+}
+
+.edit-btn:hover svg {
+  transform: scale(1.1);
+}
+
+.delete-btn:hover svg {
+  transform: scale(1.1);
 }
 
 .edit-btn {
@@ -493,6 +620,69 @@
   box-shadow: none;
 }
 
+/* === Pagination === */
+.pagination {
+  margin-top: 24px;
+  background: white;
+  padding: 20px;
+  border-radius: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+}
+
+.pagination-info {
+  font-size: 14px;
+  font-weight: 500;
+  color: #6b7280;
+  padding-left: 20px;
+}
+
+.pagination-buttons {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.pagination-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  background: white;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 14px;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  border-color: #ec4899;
+  background: #fdf2f8;
+  color: #ec4899;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(236, 72, 153, 0.2);
+}
+
+.pagination-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #f3f4f6;
+}
+
+.pagination-page-info {
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+  min-width: 100px;
+  text-align: center;
+}
+
 /* === Responsive === */
 @media (max-width: 768px) {
   .sales-container {
@@ -507,6 +697,29 @@
 
   .sales-title {
     font-size: 24px;
+  }
+
+  .sales-filters {
+    padding: 16px;
+  }
+
+  .filters-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .search-container {
+    max-width: 100%;
+    min-width: 100%;
+  }
+
+  .filter-group {
+    min-width: 100%;
+  }
+
+  .clear-filters-btn {
+    width: 100%;
+    justify-content: center;
   }
 
   .sales-table-container {

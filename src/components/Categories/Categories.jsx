@@ -6,6 +6,8 @@ import {
   Tag,
   MagnifyingGlass,
   X,
+  ArrowLeft,
+  ArrowRight,
 } from 'phosphor-react';
 import Swal from 'sweetalert2';
 import './Categories.css';
@@ -24,6 +26,8 @@ export default function Categories() {
   const [showModal, setShowModal] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [formData, setFormData] = useState({
     cat_name: '',
     cat_description: '',
@@ -219,6 +223,34 @@ export default function Categories() {
       category.cat_description.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Pagination logic
+  const totalPages = Math.ceil(filteredCategories.length / pageSize);
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const paginatedCategories = filteredCategories.slice(startIndex, endIndex);
+
+  // Reset to page 1 when search term changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, pageSize]);
+
+  const handlePageSizeChange = e => {
+    setPageSize(Number(e.target.value));
+    setCurrentPage(1);
+  };
+
+  const handlePreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
   if (loading) {
     return (
       <div className="categories-container">
@@ -256,6 +288,21 @@ export default function Categories() {
             className="search-input"
           />
         </div>
+        <div className="pagination-controls">
+          <label htmlFor="page-size-select" className="page-size-label">
+            Mostrar:
+          </label>
+          <select
+            id="page-size-select"
+            value={pageSize}
+            onChange={handlePageSizeChange}
+            className="page-size-select"
+          >
+            <option value={5}>5</option>
+            <option value={7}>7</option>
+            <option value={10}>10</option>
+          </select>
+        </div>
       </div>
 
       {error && <div className="error-message">{error}</div>}
@@ -272,7 +319,7 @@ export default function Categories() {
             </tr>
           </thead>
           <tbody>
-            {filteredCategories.map(category => (
+            {paginatedCategories.map(category => (
               <tr key={category.cat_id}>
                 <td>{category.cat_id}</td>
                 <td className="category-name">{category.cat_name}</td>
@@ -320,6 +367,38 @@ export default function Categories() {
           </div>
         )}
       </div>
+
+      {/* Pagination */}
+      {filteredCategories.length > 0 && (
+        <div className="pagination">
+          <div className="pagination-info">
+            Mostrando {startIndex + 1} -{' '}
+            {Math.min(endIndex, filteredCategories.length)} de{' '}
+            {filteredCategories.length} categorías
+          </div>
+          <div className="pagination-buttons">
+            <button
+              className="pagination-btn"
+              onClick={handlePreviousPage}
+              disabled={currentPage === 1}
+              title="Página anterior"
+            >
+              <ArrowLeft size={20} weight="bold" />
+            </button>
+            <span className="pagination-page-info">
+              Página {currentPage} de {totalPages}
+            </span>
+            <button
+              className="pagination-btn"
+              onClick={handleNextPage}
+              disabled={currentPage === totalPages}
+              title="Página siguiente"
+            >
+              <ArrowRight size={20} weight="bold" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Modal */}
       {showModal && (

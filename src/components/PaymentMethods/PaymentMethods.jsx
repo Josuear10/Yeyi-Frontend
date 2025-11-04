@@ -6,6 +6,8 @@ import {
   CreditCard,
   MagnifyingGlass,
   X,
+  ArrowLeft,
+  ArrowRight,
 } from 'phosphor-react';
 import Swal from 'sweetalert2';
 import './PaymentMethods.css';
@@ -24,6 +26,8 @@ export default function PaymentMethods() {
   const [showModal, setShowModal] = useState(false);
   const [editingPayment, setEditingPayment] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [formData, setFormData] = useState({
     pay_method: '',
     pay_description: '',
@@ -221,6 +225,34 @@ export default function PaymentMethods() {
       payment.pay_description.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Pagination logic
+  const totalPages = Math.ceil(filteredPayments.length / pageSize);
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const paginatedPayments = filteredPayments.slice(startIndex, endIndex);
+
+  // Reset to page 1 when search term changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, pageSize]);
+
+  const handlePageSizeChange = e => {
+    setPageSize(Number(e.target.value));
+    setCurrentPage(1);
+  };
+
+  const handlePreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
   if (loading) {
     return (
       <div className="payments-container">
@@ -258,6 +290,21 @@ export default function PaymentMethods() {
             className="search-input"
           />
         </div>
+        <div className="pagination-controls">
+          <label htmlFor="page-size-select" className="page-size-label">
+            Mostrar:
+          </label>
+          <select
+            id="page-size-select"
+            value={pageSize}
+            onChange={handlePageSizeChange}
+            className="page-size-select"
+          >
+            <option value={5}>5</option>
+            <option value={7}>7</option>
+            <option value={10}>10</option>
+          </select>
+        </div>
       </div>
 
       {error && <div className="error-message">{error}</div>}
@@ -274,7 +321,7 @@ export default function PaymentMethods() {
             </tr>
           </thead>
           <tbody>
-            {filteredPayments.map(payment => (
+            {paginatedPayments.map(payment => (
               <tr key={payment.pay_id}>
                 <td>{payment.pay_id}</td>
                 <td className="payment-name">{payment.pay_method}</td>
@@ -322,6 +369,38 @@ export default function PaymentMethods() {
           </div>
         )}
       </div>
+
+      {/* Pagination */}
+      {filteredPayments.length > 0 && (
+        <div className="pagination">
+          <div className="pagination-info">
+            Mostrando {startIndex + 1} -{' '}
+            {Math.min(endIndex, filteredPayments.length)} de{' '}
+            {filteredPayments.length} métodos de pago
+          </div>
+          <div className="pagination-buttons">
+            <button
+              className="pagination-btn"
+              onClick={handlePreviousPage}
+              disabled={currentPage === 1}
+              title="Página anterior"
+            >
+              <ArrowLeft size={20} weight="bold" />
+            </button>
+            <span className="pagination-page-info">
+              Página {currentPage} de {totalPages}
+            </span>
+            <button
+              className="pagination-btn"
+              onClick={handleNextPage}
+              disabled={currentPage === totalPages}
+              title="Página siguiente"
+            >
+              <ArrowRight size={20} weight="bold" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Modal */}
       {showModal && (

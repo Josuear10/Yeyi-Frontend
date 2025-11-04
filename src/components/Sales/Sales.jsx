@@ -7,6 +7,8 @@ import {
   MagnifyingGlass,
   X,
   ListBullets,
+  ArrowLeft,
+  ArrowRight,
 } from 'phosphor-react';
 import Swal from 'sweetalert2';
 import './Sales.css';
@@ -27,6 +29,9 @@ export default function Sales() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterEmployee, setFilterEmployee] = useState('');
+  const [filterDate, setFilterDate] = useState('');
+  const [filterPayment, setFilterPayment] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingSale, setEditingSale] = useState(null);
   const [submitting, setSubmitting] = useState(false);
@@ -34,6 +39,8 @@ export default function Sales() {
   const [saleDetails, setSaleDetails] = useState([]);
   const [selectedSaleId, setSelectedSaleId] = useState(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [formData, setFormData] = useState({
     emp_id: '',
     sale_date: '',
@@ -95,9 +102,10 @@ export default function Sales() {
       setError('');
       setSubmitting(true);
 
+      // Ensure date is in YYYY-MM-DD format (input type="date" already provides this)
       const saleData = {
         emp_id: parseInt(formData.emp_id),
-        sale_date: formData.sale_date,
+        sale_date: formData.sale_date, // Already in YYYY-MM-DD format from input
         sale_total: parseFloat(formData.sale_total),
         pay_id: parseInt(formData.pay_id),
       };
@@ -166,9 +174,24 @@ export default function Sales() {
 
   const handleEdit = sale => {
     setEditingSale(sale);
+    // Extract date part safely, handling both YYYY-MM-DD format and ISO strings
+    let dateValue = '';
+    if (sale.sale_date) {
+      if (typeof sale.sale_date === 'string') {
+        // If already in YYYY-MM-DD format, use it directly
+        if (sale.sale_date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+          dateValue = sale.sale_date;
+        } else if (sale.sale_date.includes('T')) {
+          // Extract date part from ISO string
+          dateValue = sale.sale_date.split('T')[0];
+        } else {
+          dateValue = sale.sale_date;
+        }
+      }
+    }
     setFormData({
       emp_id: sale.emp_id?.toString() || '',
-      sale_date: sale.sale_date ? sale.sale_date.split('T')[0] : '',
+      sale_date: dateValue,
       sale_total: sale.sale_total?.toString() || '',
       pay_id: sale.pay_id?.toString() || '',
     });
@@ -247,7 +270,27 @@ export default function Sales() {
   const formatDate = dateString => {
     if (!dateString) return '-';
     try {
+      // If dateString is already in YYYY-MM-DD format, use it directly
+      // This avoids timezone conversion issues
+      if (
+        typeof dateString === 'string' &&
+        dateString.match(/^\d{4}-\d{2}-\d{2}$/)
+      ) {
+        const [year, month, day] = dateString.split('-');
+        return `${day}/${month}/${year}`;
+      }
+      // If it's an ISO string with time, extract just the date part
+      if (typeof dateString === 'string' && dateString.includes('T')) {
+        const dateOnly = dateString.split('T')[0];
+        const [year, month, day] = dateOnly.split('-');
+        return `${day}/${month}/${year}`;
+      }
+      // Fallback: parse as Date object
       const date = new Date(dateString);
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        return dateString;
+      }
       return date.toLocaleDateString('es-ES', {
         year: 'numeric',
         month: '2-digit',
@@ -281,20 +324,90 @@ export default function Sales() {
   };
 
   const filteredSales = sales.filter(sale => {
-    const searchLower = searchTerm.toLowerCase();
-    const employeeName = getEmployeeName(sale.emp_id).toLowerCase();
-    const paymentName = getPaymentName(sale.pay_id).toLowerCase();
-    const dateStr = formatDate(sale.sale_date).toLowerCase();
-    const totalStr = formatCurrency(sale.sale_total).toLowerCase();
+    // Filtro por empleado
+    if (filterEmployee && sale.emp_id !== parseInt(filterEmployee)) {
+      return false;
+    }
 
-    return (
-      sale.sale_id?.toString().includes(searchLower) ||
-      employeeName.includes(searchLower) ||
-      paymentName.includes(searchLower) ||
-      dateStr.includes(searchLower) ||
-      totalStr.includes(searchLower)
-    );
+    // Filtro por método de pago
+    if (filterPayment && sale.pay_id !== parseInt(filterPayment)) {
+      return false;
+    }
+
+    // Filtro por fecha - comparar directamente las cadenas YYYY-MM-DD
+    if (filterDate) {
+      let saleDateStr = '';
+      if (sale.sale_date) {
+        if (
+          typeof sale.sale_date === 'string' &&
+          sale.sale_date.match(/^\d{4}-\d{2}-\d{2}$/)
+        ) {
+          saleDateStr = sale.sale_date;
+        } else if (
+          typeof sale.sale_date === 'string' &&
+          sale.sale_date.includes('T')
+        ) {
+          saleDateStr = sale.sale_date.split('T')[0];
+        } else {
+          // Fallback: parse as Date
+          const saleDate = new Date(sale.sale_date);
+          if (!isNaN(saleDate.getTime())) {
+            saleDateStr = saleDate.toISOString().split('T')[0];
+          }
+        }
+      }
+      if (saleDateStr !== filterDate) {
+        return false;
+      }
+    }
+
+    // Búsqueda general (si hay término de búsqueda)
+    if (searchTerm) {
+      const searchLower = searchTerm.toLowerCase();
+      const employeeName = getEmployeeName(sale.emp_id).toLowerCase();
+      const paymentName = getPaymentName(sale.pay_id).toLowerCase();
+      const dateStr = formatDate(sale.sale_date).toLowerCase();
+      const totalStr = formatCurrency(sale.sale_total).toLowerCase();
+
+      return (
+        sale.sale_id?.toString().includes(searchLower) ||
+        employeeName.includes(searchLower) ||
+        paymentName.includes(searchLower) ||
+        dateStr.includes(searchLower) ||
+        totalStr.includes(searchLower)
+      );
+    }
+
+    return true;
   });
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredSales.length / pageSize);
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const paginatedSales = filteredSales.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterEmployee, filterDate, filterPayment, pageSize]);
+
+  const handlePageSizeChange = e => {
+    setPageSize(Number(e.target.value));
+    setCurrentPage(1);
+  };
+
+  const handlePreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
 
   if (loading) {
     return (
@@ -321,15 +434,99 @@ export default function Sales() {
       </div>
 
       <div className="sales-filters">
-        <div className="search-container">
-          <MagnifyingGlass size={20} className="search-icon" />
-          <input
-            type="text"
-            placeholder="Buscar ventas..."
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-            className="search-input"
-          />
+        <div className="filters-row">
+          <div className="search-container">
+            <MagnifyingGlass size={20} className="search-icon" />
+            <input
+              type="text"
+              placeholder="Buscar ventas..."
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              className="search-input"
+            />
+          </div>
+
+          <div className="filter-group">
+            <label htmlFor="filter-employee" className="filter-label">
+              Empleado:
+            </label>
+            <select
+              id="filter-employee"
+              value={filterEmployee}
+              onChange={e => setFilterEmployee(e.target.value)}
+              className="filter-select"
+            >
+              <option value="">Todos</option>
+              {employees.map(employee => (
+                <option key={employee.emp_id} value={employee.emp_id}>
+                  {employee.emp_name || `Empleado #${employee.emp_id}`}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="filter-group">
+            <label htmlFor="filter-date" className="filter-label">
+              Fecha:
+            </label>
+            <input
+              type="date"
+              id="filter-date"
+              value={filterDate}
+              onChange={e => setFilterDate(e.target.value)}
+              className="filter-date-input"
+            />
+          </div>
+
+          <div className="filter-group">
+            <label htmlFor="filter-payment" className="filter-label">
+              Método de Pago:
+            </label>
+            <select
+              id="filter-payment"
+              value={filterPayment}
+              onChange={e => setFilterPayment(e.target.value)}
+              className="filter-select"
+            >
+              <option value="">Todos</option>
+              {payments.map(payment => (
+                <option key={payment.pay_id} value={payment.pay_id}>
+                  {payment.pay_method}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {(filterEmployee || filterDate || filterPayment) && (
+            <button
+              className="clear-filters-btn"
+              onClick={() => {
+                setFilterEmployee('');
+                setFilterDate('');
+                setFilterPayment('');
+              }}
+              title="Limpiar filtros"
+            >
+              <X size={18} weight="bold" />
+              Limpiar
+            </button>
+          )}
+        </div>
+
+        <div className="pagination-controls">
+          <label htmlFor="page-size-select" className="page-size-label">
+            Mostrar:
+          </label>
+          <select
+            id="page-size-select"
+            value={pageSize}
+            onChange={handlePageSizeChange}
+            className="page-size-select"
+          >
+            <option value={5}>5</option>
+            <option value={7}>7</option>
+            <option value={10}>10</option>
+          </select>
         </div>
       </div>
 
@@ -348,7 +545,7 @@ export default function Sales() {
             </tr>
           </thead>
           <tbody>
-            {filteredSales.map(sale => (
+            {paginatedSales.map(sale => (
               <tr key={sale.sale_id}>
                 <td>{sale.sale_id}</td>
                 <td className="sale-employee">
@@ -396,6 +593,38 @@ export default function Sales() {
           </div>
         )}
       </div>
+
+      {/* Pagination */}
+      {filteredSales.length > 0 && (
+        <div className="pagination">
+          <div className="pagination-info">
+            Mostrando {startIndex + 1} -{' '}
+            {Math.min(endIndex, filteredSales.length)} de {filteredSales.length}{' '}
+            ventas
+          </div>
+          <div className="pagination-buttons">
+            <button
+              className="pagination-btn"
+              onClick={handlePreviousPage}
+              disabled={currentPage === 1}
+              title="Página anterior"
+            >
+              <ArrowLeft size={20} weight="bold" />
+            </button>
+            <span className="pagination-page-info">
+              Página {currentPage} de {totalPages}
+            </span>
+            <button
+              className="pagination-btn"
+              onClick={handleNextPage}
+              disabled={currentPage === totalPages}
+              title="Página siguiente"
+            >
+              <ArrowRight size={20} weight="bold" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Modal */}
       {showModal && (

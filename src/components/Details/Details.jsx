@@ -6,6 +6,8 @@ import {
   ListBullets,
   MagnifyingGlass,
   X,
+  ArrowLeft,
+  ArrowRight,
 } from 'phosphor-react';
 import Swal from 'sweetalert2';
 import './Details.css';
@@ -28,6 +30,8 @@ export default function Details() {
   const [showModal, setShowModal] = useState(false);
   const [editingDetail, setEditingDetail] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [formData, setFormData] = useState({
     sale_id: '',
     prod_id: '',
@@ -272,6 +276,34 @@ export default function Details() {
     );
   });
 
+  // Pagination logic
+  const totalPages = Math.ceil(filteredDetails.length / pageSize);
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const paginatedDetails = filteredDetails.slice(startIndex, endIndex);
+
+  // Reset to page 1 when search term changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, pageSize]);
+
+  const handlePageSizeChange = e => {
+    setPageSize(Number(e.target.value));
+    setCurrentPage(1);
+  };
+
+  const handlePreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
   if (loading) {
     return (
       <div className="details-container">
@@ -309,6 +341,21 @@ export default function Details() {
             className="search-input"
           />
         </div>
+        <div className="pagination-controls">
+          <label htmlFor="page-size-select" className="page-size-label">
+            Mostrar:
+          </label>
+          <select
+            id="page-size-select"
+            value={pageSize}
+            onChange={handlePageSizeChange}
+            className="page-size-select"
+          >
+            <option value={5}>5</option>
+            <option value={7}>7</option>
+            <option value={10}>10</option>
+          </select>
+        </div>
       </div>
 
       {error && <div className="error-message">{error}</div>}
@@ -327,7 +374,7 @@ export default function Details() {
             </tr>
           </thead>
           <tbody>
-            {filteredDetails.map(detail => (
+            {paginatedDetails.map(detail => (
               <tr key={detail.det_id}>
                 <td>{detail.det_id}</td>
                 <td className="detail-sale">{getSaleInfo(detail.sale_id)}</td>
@@ -372,6 +419,38 @@ export default function Details() {
           </div>
         )}
       </div>
+
+      {/* Pagination */}
+      {filteredDetails.length > 0 && (
+        <div className="pagination">
+          <div className="pagination-info">
+            Mostrando {startIndex + 1} -{' '}
+            {Math.min(endIndex, filteredDetails.length)} de{' '}
+            {filteredDetails.length} detalles
+          </div>
+          <div className="pagination-buttons">
+            <button
+              className="pagination-btn"
+              onClick={handlePreviousPage}
+              disabled={currentPage === 1}
+              title="Página anterior"
+            >
+              <ArrowLeft size={20} weight="bold" />
+            </button>
+            <span className="pagination-page-info">
+              Página {currentPage} de {totalPages}
+            </span>
+            <button
+              className="pagination-btn"
+              onClick={handleNextPage}
+              disabled={currentPage === totalPages}
+              title="Página siguiente"
+            >
+              <ArrowRight size={20} weight="bold" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Modal */}
       {showModal && (
@@ -435,9 +514,9 @@ export default function Details() {
                   value={formData.det_quantity}
                   onChange={handleInputChange}
                   required
-                  min="0.01"
-                  step="0.01"
-                  placeholder="0.00"
+                  min="1"
+                  step="1"
+                  placeholder="0"
                 />
               </div>
 
